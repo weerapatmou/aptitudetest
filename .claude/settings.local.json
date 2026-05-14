@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(yes)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(dir \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\")",
+      "Bash(dir \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\\\\src\")",
+      "Bash(timeout 5 sleep 5)",
+      "Bash(findstr /R \"title body main script\")",
+      "Bash(dir \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\\\\src\\\\demo\" \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\\\\src\\\\matching-parts-puzzle\" \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\\\\src\\\\rotation-puzzle\")",
+      "Bash(dir \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\\\\src\\\\rotation-puzzle\\\\hooks\")",
+      "Bash(Select-Object -Last 40)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)"
+    ]
+  }
+}
