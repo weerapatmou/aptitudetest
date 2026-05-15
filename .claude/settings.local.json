@@ -13,7 +13,14 @@
       "Bash(dir \"c:\\\\Users\\\\weerapat.moungsouy\\\\OneDrive - Accenture\\\\AI Project\\\\TGAptitudeTest\\\\src\\\\rotation-puzzle\\\\hooks\")",
       "Bash(Select-Object -Last 40)",
       "Bash(gh --version)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "WebFetch(domain:aptitudetest-rho.vercel.app)",
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Format-Table Name, FullName, PSIsContainer)",
+      "Bash(cd \"/c/Users/weerapat.moungsouy/OneDrive - Accenture/AI Project/TGAptitudeTest\" && find . -type f -name \"*.json\" -o -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.jsx\" -o -name \"*.vue\" | head -50)",
+      "Read(//c/c/Users/weerapat.moungsouy/OneDrive - Accenture/AI Project/**)",
+      "Bash(timeout 4 bash -c 'until grep -q \"ready in\\\\|Local:\" \"C:/Users/WEERAP~1.MOU/AppData/Local/Temp/claude/c--Users-weerapat-moungsouy-OneDrive---Accenture-AI-Project-TGAptitudeTest/c3e8f6f6-f6c1-4762-a273-0c4c8155e8ce/tasks/bzvgg3169.output\" 2>/dev/null; do sleep 0.2; done; cat \"C:/Users/WEERAP~1.MOU/AppData/Local/Temp/claude/c--Users-weerapat-moungsouy-OneDrive---Accenture-AI-Project-TGAptitudeTest/c3e8f6f6-f6c1-4762-a273-0c4c8155e8ce/tasks/bzvgg3169.output\"')"
     ]
   }
 }

@@ -1,15 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { RotationPuzzle } from '@/rotation-puzzle';
 import { MatchingPartsPuzzle } from '@/matching-parts-puzzle';
+import { PolygonAssemblyPuzzle } from '@/polygon-assembly-puzzle';
 
-type Mode = 'home' | 'rotation' | 'matching';
+type Mode = 'home' | 'rotation' | 'matching' | 'polygon-assembly';
 
 const STORAGE_KEY = 'puzzle:active';
 
 function readMode(): Mode {
   if (typeof window === 'undefined') return 'home';
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (raw === 'rotation' || raw === 'matching' || raw === 'home') return raw;
+  if (raw === 'rotation' || raw === 'matching' || raw === 'polygon-assembly' || raw === 'home') return raw;
   return 'home';
 }
 
@@ -26,10 +27,14 @@ export function App() {
   }
   return (
     <div className="relative">
-      {mode === 'rotation' ? (
+      {mode === 'rotation' && (
         <RotationPuzzle difficulty="medium" onHome={() => setMode('home')} />
-      ) : (
+      )}
+      {mode === 'matching' && (
         <MatchingPartsPuzzle difficulty="medium" onHome={() => setMode('home')} />
+      )}
+      {mode === 'polygon-assembly' && (
+        <PolygonAssemblyPuzzle difficulty="medium" onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -74,6 +79,22 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
         </svg>
       ),
     },
+    {
+      id: 'polygon-assembly',
+      title: 'Polygon Assembly',
+      tagline: 'Spatial Construction',
+      description:
+        'Pick which set of 3–6 scattered pieces actually assembles into the target silhouette. Click any option to watch all five attempt assembly side-by-side.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="-9,-9 9,-9 9,9 -9,9" opacity={0.35} />
+            <polygon points="-7,-7 1,-7 -3,3" />
+            <polygon points="3,-5 7,2 -1,5" opacity={0.7} />
+          </g>
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -103,7 +124,7 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {tests.map((test) => (
             <button
               key={test.id}
