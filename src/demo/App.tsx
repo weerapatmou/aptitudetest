@@ -2,15 +2,23 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { RotationPuzzle } from '@/rotation-puzzle';
 import { MatchingPartsPuzzle } from '@/matching-parts-puzzle';
 import { PolygonAssemblyPuzzle } from '@/polygon-assembly-puzzle';
+import { NumberSeriesPuzzle } from '@/number-series-puzzle';
 
-type Mode = 'home' | 'rotation' | 'matching' | 'polygon-assembly';
+type Mode = 'home' | 'rotation' | 'matching' | 'polygon-assembly' | 'number-series';
 
 const STORAGE_KEY = 'puzzle:active';
 
 function readMode(): Mode {
   if (typeof window === 'undefined') return 'home';
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (raw === 'rotation' || raw === 'matching' || raw === 'polygon-assembly' || raw === 'home') return raw;
+  if (
+    raw === 'rotation' ||
+    raw === 'matching' ||
+    raw === 'polygon-assembly' ||
+    raw === 'number-series' ||
+    raw === 'home'
+  )
+    return raw;
   return 'home';
 }
 
@@ -35,6 +43,9 @@ export function App() {
       )}
       {mode === 'polygon-assembly' && (
         <PolygonAssemblyPuzzle difficulty="medium" onHome={() => setMode('home')} />
+      )}
+      {mode === 'number-series' && (
+        <NumberSeriesPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -95,6 +106,39 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
         </svg>
       ),
     },
+    {
+      id: 'number-series',
+      title: 'Number Series',
+      tagline: 'Numerical Reasoning',
+      description:
+        'Spot the rule behind a sequence and pick the missing number. Difficulty ramps from simple arithmetic to layered recurrences and interleaved sequences.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g
+            stroke="var(--accent)"
+            strokeWidth={1.6}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fontFamily="ui-monospace, monospace"
+          >
+            <text x={-9} y={3} fontSize={6} fill="var(--accent)" stroke="none" opacity={0.75}>
+              2
+            </text>
+            <text x={-3} y={3} fontSize={6} fill="var(--accent)" stroke="none" opacity={0.75}>
+              4
+            </text>
+            <text x={3} y={3} fontSize={6} fill="var(--accent)" stroke="none" opacity={0.75}>
+              8
+            </text>
+            <text x={9} y={3} fontSize={6} fill="var(--accent)" stroke="none">
+              ?
+            </text>
+            <rect x={7} y={-3} width={6} height={8} rx={1} opacity={0.7} />
+          </g>
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -124,7 +168,7 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {tests.map((test) => (
             <button
               key={test.id}
