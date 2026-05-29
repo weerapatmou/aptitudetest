@@ -1,4 +1,4 @@
-import type { Difficulty, SeriesQuestion, SeriesSettings } from '../types';
+import type { Difficulty, PatternKind, SeriesQuestion, SeriesSettings } from '../types';
 import { defaultRng, makeRng } from './rng';
 import type { Rng } from './rng';
 import { buildOptions } from './distractors';
@@ -25,6 +25,15 @@ const SEQUENCE_LENGTH_BY_DIFFICULTY: Record<Difficulty, [number, number]> = {
   expert: [5, 6],
 };
 
+// Patterns whose rule is split across positions by a modular cycle need
+// enough visible terms for the user to spot the lane structure. Total
+// sequence length (the blank counts as one term).
+const MIN_LENGTH_BY_KIND: Partial<Record<PatternKind, number>> = {
+  'interleaved-2': 7,
+  'pair-skip': 7,
+  'interleaved-3': 10,
+};
+
 const MIDDLE_BLANK_PROBABILITY = 0.3;
 
 /**
@@ -40,16 +49,25 @@ export function generateSeriesQuestion(
 
   const generators = GENERATORS_BY_DIFFICULTY[effective];
   const [minLen, maxLen] = SEQUENCE_LENGTH_BY_DIFFICULTY[effective];
-  const length = rng.int(minLen, maxLen + 1);
+  const initialLength = rng.int(minLen, maxLen + 1);
   const gen = rng.pick(generators);
-  const pattern = gen(rng, length);
+  let pattern = gen(rng, initialLength);
+
+  // Interleaved / mod-cycle patterns need a longer window so the user can
+  // see at least 2–3 full cycles before the blank. If the initial draw was
+  // too short, re-roll the same generator with the required length.
+  const required = MIN_LENGTH_BY_KIND[pattern.kind];
+  if (required !== undefined && pattern.terms.length < required) {
+    pattern = gen(rng, required);
+  }
+  const effectiveLength = pattern.terms.length;
 
   // Pick blank position. 70% last, 30% middle (positions 2..length-2 so the
   // user sees at least the first two terms and at least one term after the blank).
-  let missingIndex = length - 1;
-  if (rng.next() < MIDDLE_BLANK_PROBABILITY && length >= 5) {
+  let missingIndex = effectiveLength - 1;
+  if (rng.next() < MIDDLE_BLANK_PROBABILITY && effectiveLength >= 5) {
     const lo = 2;
-    const hi = length - 2; // inclusive
+    const hi = effectiveLength - 2; // inclusive
     if (hi >= lo) missingIndex = rng.int(lo, hi + 1);
   }
 

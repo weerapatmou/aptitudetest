@@ -98,6 +98,31 @@ describe('generateSeriesQuestion', () => {
   });
 });
 
+describe('interleaved / mod-cycle patterns get enough visible terms', () => {
+  const REQUIRED: Array<{ kind: string; difficulty: Difficulty; minLen: number }> = [
+    { kind: 'interleaved-2', difficulty: 'medium', minLen: 7 },
+    { kind: 'pair-skip', difficulty: 'medium', minLen: 7 },
+    { kind: 'interleaved-3', difficulty: 'expert', minLen: 10 },
+  ];
+
+  for (const { kind, difficulty, minLen } of REQUIRED) {
+    it(`${kind}: every generated question has at least ${minLen} terms`, () => {
+      const rng = makeRng(20260529);
+      let sawKind = 0;
+      // Generate generously to surface the kind several times; each tier has many
+      // generators so we need a healthy budget.
+      for (let i = 0; i < 800 && sawKind < 8; i++) {
+        const q = generateSeriesQuestion(difficulty, rng);
+        if (q.pattern.kind !== kind) continue;
+        sawKind++;
+        expect(q.visibleTerms.length).toBeGreaterThanOrEqual(minLen);
+        expect(q.pattern.terms.length).toBeGreaterThanOrEqual(minLen);
+      }
+      expect(sawKind).toBeGreaterThan(0);
+    });
+  }
+});
+
 describe('generateSession', () => {
   it('produces the requested number of questions', () => {
     const session = generateSession({ count: 12, difficulty: 'medium' }, 1);
