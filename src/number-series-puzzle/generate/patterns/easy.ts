@@ -5,6 +5,11 @@ export type PatternGenerator = (rng: Rng, length: number) => SeriesPattern;
 
 const sub = (n: number): string => n.toString();
 
+export function roundDec(n: number, places = 4): number {
+  const f = Math.pow(10, places);
+  return Math.round(n * f) / f;
+}
+
 // E1: constant addition, small step
 const arithAddSmall: PatternGenerator = (rng, length) => {
   const k = rng.int(1, 6); // 1..5
@@ -160,6 +165,42 @@ const countDown: PatternGenerator = (rng, length) => {
   };
 };
 
+// E11: geometric multiplication by a fractional ratio (×0.5, ×0.75, ×1.5)
+const geoFractional: PatternGenerator = (rng, length) => {
+  const choice = rng.pick([
+    { p: 1, q: 2, label: '0.5' },
+    { p: 3, q: 4, label: '0.75' },
+    { p: 3, q: 2, label: '1.5' },
+  ] as const);
+  const k = rng.int(1, 6);
+  let v = k * Math.pow(choice.q, length - 1);
+  const terms: number[] = [];
+  for (let i = 0; i < length; i++) {
+    terms.push(roundDec(v, 4));
+    v = (v * choice.p) / choice.q;
+  }
+  return {
+    kind: 'geo-fractional',
+    difficulty: 'easy',
+    formula: `aₙ₊₁ = aₙ × ${choice.label}`,
+    explanation: `Each term is multiplied by ${choice.label}.`,
+    terms,
+  };
+};
+
+// E12: constant plus a power of 2 (aₙ = c + 2^(n−1))
+const constPlusPow2: PatternGenerator = (rng, length) => {
+  const c = rng.int(1, 12);
+  const terms = Array.from({ length }, (_, i) => c + Math.pow(2, i));
+  return {
+    kind: 'const-plus-pow2',
+    difficulty: 'easy',
+    formula: `aₙ = ${c} + 2^(n−1)`,
+    explanation: `Each term equals ${c} plus a power of 2: ${c}+1, ${c}+2, ${c}+4, ${c}+8, ${c}+16, …`,
+    terms,
+  };
+};
+
 export const EASY_GENERATORS: PatternGenerator[] = [
   arithAddSmall,
   arithAddRound,
@@ -171,4 +212,6 @@ export const EASY_GENERATORS: PatternGenerator[] = [
   alternatingPair,
   powersSmall,
   countDown,
+  geoFractional,
+  constPlusPow2,
 ];

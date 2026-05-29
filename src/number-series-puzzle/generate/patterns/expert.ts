@@ -1,4 +1,5 @@
 import type { PatternGenerator } from './easy';
+import { roundDec } from './easy';
 
 // X1: aₙ = n⁴ − k
 const n4MinusK: PatternGenerator = (rng, length) => {
@@ -228,6 +229,204 @@ const padovan: PatternGenerator = (_rng, length) => {
   };
 };
 
+// X16: third-difference pattern (Δ³ decrements by 1 each step)
+const thirdDiffPattern: PatternGenerator = (rng, length) => {
+  const start = rng.int(10, 25);
+  const startGap = rng.int(5, 9);
+  const startSecondGap = rng.int(10, 14);
+  let gap = startGap;
+  let secondGap = startSecondGap;
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + gap);
+    gap += secondGap;
+    secondGap -= 1;
+  }
+  return {
+    kind: 'third-diff-pattern',
+    difficulty: 'expert',
+    formula: 'Δ³ = −1 (third-difference is constant)',
+    explanation: 'The differences between consecutive terms keep growing, but the gaps between *those* differences themselves SHRINK by 1 each step — a third-order pattern.',
+    terms,
+  };
+};
+
+// X17: chained ÷2 then add a growing power of 2 (+2², +2³, +2⁴, +2⁵, …)
+const div2AddPow2Growing: PatternGenerator = (rng, length) => {
+  const start = Math.pow(2, length + 4) + rng.int(0, 50) * 2;
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const exp = i + 1;
+    v = v / 2 + Math.pow(2, exp);
+    terms.push(roundDec(v, 4));
+  }
+  return {
+    kind: 'div2-add-pow2-growing',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = aₙ/2 + 2ⁿ⁺¹',
+    explanation: 'Each step: divide by 2, then add a growing power of 2 (+2², +2³, +2⁴, +2⁵, …).',
+    terms,
+  };
+};
+
+// X18: both multiplier AND addend grow in half-integer steps
+const halfStepBoth: PatternGenerator = (rng, length) => {
+  const start = rng.int(6, 12);
+  let v = start;
+  const terms: number[] = [v];
+  let mul = 1.5;
+  let add = 0.5;
+  for (let i = 1; i < length; i++) {
+    v = v * mul + add;
+    terms.push(roundDec(v, 4));
+    mul += 0.5;
+    add += 0.5;
+  }
+  return {
+    kind: 'half-step-both',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = aₙ · (mul) + (add); both grow by 0.5',
+    explanation: 'Each step uses ×1.5+0.5, then ×2+1, then ×2.5+1.5, then ×3+2, … — both the multiplier and the addend grow by 0.5 each step.',
+    terms,
+  };
+};
+
+// X19: aₙ₊₁ = aₙ·n + (alternating ±) n(n+1)
+const mulByNAddNxNplus1: PatternGenerator = (rng, length) => {
+  const start = rng.int(5, 12);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const n = i;
+    const sign = i % 2 === 1 ? 1 : -1;
+    v = v * n + sign * n * (n + 1);
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-by-n-add-n-x-n-plus-1',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = aₙ·n ± n(n+1)',
+    explanation: 'Multiply by position n, then add or subtract n·(n+1) with alternating sign (+, −, +, −, …).',
+    terms,
+  };
+};
+
+// X20: multiplier grows by 1 each step; addend alternates between +c and −d
+const mulGrowingAltAdd: PatternGenerator = (rng, length) => {
+  const start = rng.int(3, 8);
+  const addEven = rng.int(3, 5);
+  const subOdd = rng.int(2, 4);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const mul = i + 1;
+    const add = i % 2 === 1 ? addEven : -subOdd;
+    v = v * mul + add;
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-growing-alt-add',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = aₙ · (n+1) + alternating const',
+    explanation: `Multiply by a growing position (×2, ×3, ×4, ×5, …) and alternately add ${addEven} and subtract ${subOdd}.`,
+    terms,
+  };
+};
+
+// X21: add a decreasing constant, then multiply by an incrementing position
+const addDecMulInc: PatternGenerator = (rng, length) => {
+  const initialAdd = Math.max(length + 1, rng.int(6, 9));
+  const start = rng.int(2, 5);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const add = initialAdd - (i - 1);
+    v = (v + add) * i;
+    terms.push(v);
+  }
+  return {
+    kind: 'add-dec-mul-inc',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = (aₙ + (decreasing k)) · n',
+    explanation: `Each step: add a constant that decreases by 1 (starts at +${initialAdd}), then multiply by an increasing position (×1, ×2, ×3, ×4, …).`,
+    terms,
+  };
+};
+
+// X22: aₙ₊₁ = aₙ·n + (n+1)² — multiplier grows, squared addend grows one ahead
+const mulNAddNextSquare: PatternGenerator = (rng, length) => {
+  const start = rng.int(20, 50);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const n = i;
+    v = v * n + Math.pow(n + 1, 2);
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-n-add-next-square',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = aₙ·n + (n+1)²',
+    explanation: 'Each step: multiply by position n, then add (n+1) squared (×1+2², ×2+3², ×3+4², ×4+5², …).',
+    terms,
+  };
+};
+
+// X23: aₙ₊₁ = aₙ · (2n) − (2n) — multiplier is the next even number, subtract the same
+const mulBy2nSub2n: PatternGenerator = (rng, length) => {
+  const start = rng.int(3, 10);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const k = 2 * i;
+    v = v * k - k;
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-by-2n-sub-2n',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = aₙ · (2n) − (2n)',
+    explanation: 'Each step: multiply by the next even number and subtract the same even number (×2−2, ×4−4, ×6−6, ×8−8, ×10−10, …).',
+    terms,
+  };
+};
+
+// X24: each term is the sum of all previous terms (seed twice)
+const sumOfAllPrevious: PatternGenerator = (rng, length) => {
+  const seed = rng.int(2, 6);
+  const terms: number[] = [seed];
+  for (let i = 1; i < length; i++) {
+    const sum = terms.reduce((a, b) => a + b, 0);
+    terms.push(sum);
+  }
+  return {
+    kind: 'sum-of-all-previous',
+    difficulty: 'expert',
+    formula: 'aₙ = Σ aᵢ (i < n)',
+    explanation: `Each term equals the sum of ALL previous terms. After the seed (${seed}), the sequence essentially doubles from one step to the next.`,
+    terms,
+  };
+};
+
+// X25: aₙ₊₁ = 3·aₙ − 6n — multiply by 3 then subtract a growing multiple of 6
+const mul3SubGrowing: PatternGenerator = (rng, length) => {
+  const start = rng.int(5, 12);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    v = v * 3 - 6 * i;
+    terms.push(v);
+  }
+  return {
+    kind: 'mul3-sub-growing',
+    difficulty: 'expert',
+    formula: 'aₙ₊₁ = 3·aₙ − 6n',
+    explanation: 'Each step: triple the previous term, then subtract a growing multiple of 6 (×3−6, ×3−12, ×3−18, ×3−24, …).',
+    terms,
+  };
+};
+
 export const EXPERT_GENERATORS: PatternGenerator[] = [
   n4MinusK,
   factorialOffset,
@@ -241,4 +440,14 @@ export const EXPERT_GENERATORS: PatternGenerator[] = [
   nToN,
   fibTimesN,
   padovan,
+  thirdDiffPattern,
+  div2AddPow2Growing,
+  halfStepBoth,
+  mulByNAddNxNplus1,
+  mulGrowingAltAdd,
+  addDecMulInc,
+  mulNAddNextSquare,
+  mulBy2nSub2n,
+  sumOfAllPrevious,
+  mul3SubGrowing,
 ];

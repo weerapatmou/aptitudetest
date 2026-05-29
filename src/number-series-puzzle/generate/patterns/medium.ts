@@ -1,5 +1,6 @@
 import type { SeriesPattern } from '../../types';
 import type { PatternGenerator } from './easy';
+import { roundDec } from './easy';
 
 // M1: Δ increases by 1 each step (a(n+1) = a(n) + n)
 const arithGapGrows: PatternGenerator = (rng, length) => {
@@ -285,6 +286,233 @@ const factorialByPosition: PatternGenerator = (_rng, length) => {
   };
 };
 
+// M17: n² with alternating ±k sign offset (n²+1, n²−1, n²+1, …)
+const squaresAltSign: PatternGenerator = (rng, length) => {
+  const k = rng.int(1, 4);
+  const startN = rng.int(3, 6);
+  const startSign = rng.bool() ? 1 : -1;
+  const terms = Array.from({ length }, (_, i) => {
+    const n = startN + i;
+    const sign = i % 2 === 0 ? startSign : -startSign;
+    return n * n + sign * k;
+  });
+  const firstWord = startSign > 0 ? '+' : '−';
+  const secondWord = startSign > 0 ? '−' : '+';
+  return {
+    kind: 'squares-alt-sign',
+    difficulty: 'medium',
+    formula: `aₙ = n² ± ${k}`,
+    explanation: `Square numbers with alternating offset: n² ${firstWord} ${k}, n² ${secondWord} ${k}, repeating (starting at n = ${startN}).`,
+    terms,
+  };
+};
+
+// M18: add a value that halves each step
+const addHalving: PatternGenerator = (rng, length) => {
+  const factor = Math.pow(2, length - 2);
+  const baseGap = rng.int(8, 30);
+  const startGap = baseGap * factor;
+  const start = rng.int(10, 40);
+  let gap = startGap;
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + gap);
+    gap = gap / 2;
+  }
+  return {
+    kind: 'add-halving',
+    difficulty: 'medium',
+    formula: 'gap halves each step',
+    explanation: `Add a value that halves each step: +${startGap}, +${startGap / 2}, +${startGap / 4}, +${startGap / 8}, …`,
+    terms,
+  };
+};
+
+// M19: gaps are perfect squares (+1², +2², +3², +4², …)
+const gapsAreSquares: PatternGenerator = (rng, length) => {
+  const start = rng.int(3, 12);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + i * i);
+  }
+  return {
+    kind: 'gaps-are-squares',
+    difficulty: 'medium',
+    formula: 'gaps are 1², 2², 3², …',
+    explanation: 'The differences between consecutive terms are perfect squares: +1, +4, +9, +16, +25, +36, …',
+    terms,
+  };
+};
+
+// M20: gaps are descending squares (+k², +(k−1)², +(k−2)², …)
+const gapsAreDescSquares: PatternGenerator = (rng, length) => {
+  const startGapN = Math.max(length + 2, rng.int(8, 12));
+  const start = rng.int(10, 30);
+  let gapN = startGapN;
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + gapN * gapN);
+    gapN -= 1;
+  }
+  return {
+    kind: 'gaps-are-desc-squares',
+    difficulty: 'medium',
+    formula: 'gaps are k², (k−1)², (k−2)², …',
+    explanation: `The gaps between terms are descending squares: +${startGapN}², +${startGapN - 1}², +${startGapN - 2}², +${startGapN - 3}², …`,
+    terms,
+  };
+};
+
+// M22: gaps are clean multiples of a constant K (+K, +2K, +3K, +4K, …)
+const gapsAreMultiplesOfK: PatternGenerator = (rng, length) => {
+  const K = rng.pick([7, 11, 13, 17, 19, 23, 50, 100, 250, 713] as const);
+  const start = rng.int(50, 800);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + K * i);
+  }
+  return {
+    kind: 'gaps-are-multiples-of-k',
+    difficulty: 'medium',
+    formula: `gaps are ${K}·1, ${K}·2, ${K}·3, …`,
+    explanation: `Each gap is a clean multiple of ${K}: +${K}, +${2 * K}, +${3 * K}, +${4 * K}, +${5 * K}, …`,
+    terms,
+  };
+};
+
+// M23: aₙ₊₁ = aₙ · (n+1) + (n+1) — multiply by position, then add position
+const mulByNAddN: PatternGenerator = (rng, length) => {
+  const start = rng.int(5, 20);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const n = i + 1;
+    v = v * n + n;
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-by-n-add-n',
+    difficulty: 'medium',
+    formula: 'aₙ₊₁ = aₙ·(n+1) + (n+1)',
+    explanation: 'Each step: multiply the previous term by the next position number, then add that same position number.',
+    terms,
+  };
+};
+
+// M24: aₙ₊₁ = aₙ · n − k (multiplier grows, fixed subtractor)
+const mulByNSubK: PatternGenerator = (rng, length) => {
+  const k = rng.int(2, 8);
+  const start = rng.int(8, 25);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    v = v * i - k;
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-by-n-sub-k',
+    difficulty: 'medium',
+    formula: `aₙ₊₁ = aₙ·n − ${k}`,
+    explanation: `Each step: multiply by the next position number, then subtract ${k}.`,
+    terms,
+  };
+};
+
+// M25: aₙ = n³ + n
+const nCubedPlusN: PatternGenerator = (rng, length) => {
+  const startN = rng.int(1, 3);
+  const maxLen = Math.min(length, 7);
+  const terms: number[] = [];
+  for (let i = 0; i < maxLen; i++) {
+    const n = startN + i;
+    terms.push(n * n * n + n);
+  }
+  while (terms.length < length) {
+    const n = startN + terms.length;
+    terms.push(n * n * n + n);
+  }
+  return {
+    kind: 'n-cubed-plus-n',
+    difficulty: 'medium',
+    formula: 'aₙ = n³ + n',
+    explanation: `Each term is n cubed plus n (starting at n = ${startN}).`,
+    terms,
+  };
+};
+
+// M26: aₙ = n² − (n − 1) — quadratic minus previous-position offset
+const n2MinusPrevPos: PatternGenerator = (rng, length) => {
+  const startN = rng.int(1, 4);
+  const terms = Array.from({ length }, (_, i) => {
+    const n = startN + i;
+    return n * n - (n - 1);
+  });
+  return {
+    kind: 'n2-minus-prev-pos',
+    difficulty: 'medium',
+    formula: 'aₙ = n² − (n−1)',
+    explanation: `Each term is n² minus (n−1), where n is the position (starting at ${startN}).`,
+    terms,
+  };
+};
+
+// M27: add consecutive primes as the running gap
+const PRIMES_GAP = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31];
+const addPrimes: PatternGenerator = (rng, length) => {
+  const start = rng.int(1, 10);
+  const offset = rng.int(0, Math.max(1, PRIMES_GAP.length - length));
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    const p = PRIMES_GAP[offset + i - 1] ?? PRIMES_GAP[PRIMES_GAP.length - 1]!;
+    terms.push(terms[i - 1]! + p);
+  }
+  const head = PRIMES_GAP.slice(offset, offset + Math.min(5, length - 1)).map((p) => `+${p}`).join(', ');
+  return {
+    kind: 'add-primes',
+    difficulty: 'medium',
+    formula: 'aₙ₊₁ = aₙ + p(n)',
+    explanation: `Each step adds the next consecutive prime number (${head}, …).`,
+    terms,
+  };
+};
+
+// M28: multiply by a growing fraction n/k (×1/k, ×2/k, ×3/k, …)
+const mulGrowingFraction: PatternGenerator = (rng, length) => {
+  const k = rng.pick([3, 4, 5] as const);
+  const start = Math.pow(k, 2) * rng.int(8, 25);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    v = (v * i) / k;
+    terms.push(roundDec(v, 6));
+  }
+  return {
+    kind: 'mul-growing-fraction',
+    difficulty: 'medium',
+    formula: `aₙ₊₁ = aₙ × (n/${k})`,
+    explanation: `Multiply by a growing fraction with denominator ${k}: ×1/${k}, ×2/${k}, ×3/${k}, ×4/${k}, …`,
+    terms,
+  };
+};
+
+// M29: add (constant K × consecutive odd numbers) — +K×1, +K×3, +K×5, …
+const addKTimesOdd: PatternGenerator = (rng, length) => {
+  const K = rng.pick([3, 5, 7, 9, 11] as const);
+  const start = rng.int(10, 50);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    const odd = 2 * i - 1;
+    terms.push(terms[i - 1]! + K * odd);
+  }
+  return {
+    kind: 'add-k-times-odd',
+    difficulty: 'medium',
+    formula: `aₙ₊₁ = aₙ + ${K}·(2n−1)`,
+    explanation: `Each step adds ${K} times the next odd number: +${K}·1, +${K}·3, +${K}·5, +${K}·7, +${K}·9, …`,
+    terms,
+  };
+};
+
 export const MEDIUM_GENERATORS: PatternGenerator[] = [
   arithGapGrows,
   geoFactorGrows,
@@ -302,6 +530,18 @@ export const MEDIUM_GENERATORS: PatternGenerator[] = [
   gapDoubles,
   pairSkip,
   factorialByPosition,
+  squaresAltSign,
+  addHalving,
+  gapsAreSquares,
+  gapsAreDescSquares,
+  gapsAreMultiplesOfK,
+  mulByNAddN,
+  mulByNSubK,
+  nCubedPlusN,
+  n2MinusPrevPos,
+  addPrimes,
+  mulGrowingFraction,
+  addKTimesOdd,
 ];
 
 // Re-export the SeriesPattern type for downstream tests

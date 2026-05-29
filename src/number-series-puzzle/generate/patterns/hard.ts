@@ -1,4 +1,5 @@
 import type { PatternGenerator } from './easy';
+import { roundDec } from './easy';
 
 const signWord = (k: number): string => (k >= 0 ? '+' : '−');
 
@@ -278,6 +279,291 @@ const factorial: PatternGenerator = (_rng, length) => {
   };
 };
 
+// H26: half-step growing multiplier (×0.5, ×1.5, ×2.5, ×3.5, …)
+const halfStepMultiplier: PatternGenerator = (rng, length) => {
+  const start = rng.int(20, 80) * 2;
+  let v = start;
+  const terms: number[] = [v];
+  let mul = 0.5;
+  for (let i = 1; i < length; i++) {
+    v = v * mul;
+    terms.push(roundDec(v, 4));
+    mul += 1;
+  }
+  return {
+    kind: 'half-step-multiplier',
+    difficulty: 'hard',
+    formula: 'aₙ₊₁ = aₙ × (n − 0.5)',
+    explanation: 'Each step multiplies by a half-step factor that grows by 1 each time: ×0.5, ×1.5, ×2.5, ×3.5, ×4.5, …',
+    terms,
+  };
+};
+
+// H27: gaps are (n³ − 1) — +7, +26, +63, +124, +215, …
+const addCubeMinus1: PatternGenerator = (rng, length) => {
+  const start = rng.int(3, 15);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    const n = i + 1;
+    terms.push(terms[i - 1]! + (n * n * n - 1));
+  }
+  return {
+    kind: 'add-cube-minus-1',
+    difficulty: 'hard',
+    formula: 'aₙ₊₁ = aₙ + (n³ − 1)',
+    explanation: 'Each gap is one less than a perfect cube: +(2³−1)=+7, +(3³−1)=+26, +(4³−1)=+63, +(5³−1)=+124, +(6³−1)=+215, …',
+    terms,
+  };
+};
+
+// H28: aₙ₊₁ = aₙ × n − n (multiply by position, subtract position)
+const mulByNSubN: PatternGenerator = (rng, length) => {
+  const start = rng.int(10, 25);
+  const maxLen = Math.min(length, 7);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < maxLen; i++) {
+    v = v * i - i;
+    terms.push(v);
+  }
+  while (terms.length < length) {
+    const i = terms.length;
+    terms.push(terms[i - 1]! * i - i);
+  }
+  return {
+    kind: 'mul-by-n-sub-n',
+    difficulty: 'hard',
+    formula: 'aₙ₊₁ = aₙ·n − n',
+    explanation: 'Multiply by the position, then subtract that same position: ×1−1, ×2−2, ×3−3, …',
+    terms,
+  };
+};
+
+// H29: descending multiplier then −1 (×k, ×(k−1), ×(k−2), … each step then subtract 1)
+const mulDescSub1: PatternGenerator = (rng, length) => {
+  const startMul = Math.max(length + 1, 7);
+  const start = rng.int(5, 15);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const mul = startMul - (i - 1);
+    if (mul < 2) {
+      terms.push(terms[i - 1]! * 2 - 1);
+    } else {
+      v = v * mul - 1;
+      terms.push(v);
+    }
+  }
+  return {
+    kind: 'mul-desc-sub-1',
+    difficulty: 'hard',
+    formula: `aₙ₊₁ = aₙ × (descending) − 1`,
+    explanation: `Multiply by a descending integer (start ×${startMul}, then ×${startMul - 1}, ×${startMul - 2}, …), then subtract 1 each step.`,
+    terms,
+  };
+};
+
+// H30: alternate ×2+1 and ×1+2 (two operations swapping each step)
+const altMulOp: PatternGenerator = (rng, length) => {
+  const start = rng.int(5, 30);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    if (i % 2 === 1) v = v * 2 + 1;
+    else v = v * 1 + 2;
+    terms.push(v);
+  }
+  return {
+    kind: 'alt-mul-op',
+    difficulty: 'hard',
+    formula: 'alternate ×2+1 and ×1+2',
+    explanation: 'Operations alternate each step: first ×2+1, then +2 (i.e., ×1+2), then ×2+1 again, repeating.',
+    terms,
+  };
+};
+
+// H31: alternating sign, magnitude shrinks by 4 each step
+const altSignShrinking: PatternGenerator = (rng, length) => {
+  const startMag = Math.max(2, (length - 1) * 4 - 2);
+  const start = rng.int(50, 100);
+  const terms: number[] = [start];
+  let mag = startMag;
+  let sign = -1;
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + sign * mag);
+    sign = -sign;
+    mag -= 4;
+  }
+  return {
+    kind: 'alt-sign-shrinking',
+    difficulty: 'hard',
+    formula: 'alternating ±, magnitude decreases by 4',
+    explanation: `Each step alternates sign and the magnitude decreases by 4: −${startMag}, +${startMag - 4}, −${startMag - 8}, +${startMag - 12}, …`,
+    terms,
+  };
+};
+
+// H32: gaps are n² + n³
+const gapsAreSquarePlusCube: PatternGenerator = (rng, length) => {
+  const start = rng.int(2, 8);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    const n = i;
+    terms.push(terms[i - 1]! + n * n + n * n * n);
+  }
+  return {
+    kind: 'gaps-are-square-plus-cube',
+    difficulty: 'hard',
+    formula: 'gaps are n² + n³',
+    explanation: 'Each gap equals n² + n³ with n growing: +(1+1)=+2, +(4+8)=+12, +(9+27)=+36, +(16+64)=+80, +(25+125)=+150, …',
+    terms,
+  };
+};
+
+// H33: aₙ₊₁ = aₙ × n + n² (multiplier and squared addend grow together)
+const mulByNAddNSquared: PatternGenerator = (rng, length) => {
+  const start = rng.int(3, 12);
+  let v = start;
+  const terms: number[] = [v];
+  for (let i = 1; i < length; i++) {
+    const n = i;
+    v = v * n + n * n;
+    terms.push(v);
+  }
+  return {
+    kind: 'mul-by-n-add-n-squared',
+    difficulty: 'hard',
+    formula: 'aₙ₊₁ = aₙ·n + n²',
+    explanation: 'Each step: multiply by position, then add position squared (×1+1², ×2+2², ×3+3², ×4+4², …).',
+    terms,
+  };
+};
+
+// H34: descending dual (multiplier descends by 2 AND subtractor descends by 2)
+const descendingDualMulSub: PatternGenerator = (rng, length) => {
+  const startMul = 2 * (length - 1) + 1;
+  const startSub = 2 * (length - 1) + 2;
+  const start = rng.int(3, 8);
+  let v = start;
+  const terms: number[] = [v];
+  let mul = startMul;
+  let sub = startSub;
+  for (let i = 1; i < length; i++) {
+    v = v * mul - sub;
+    terms.push(v);
+    mul -= 2;
+    sub -= 2;
+  }
+  return {
+    kind: 'descending-dual-mul-sub',
+    difficulty: 'hard',
+    formula: 'aₙ₊₁ = aₙ·(descending) − (descending)',
+    explanation: `Both the multiplier (${startMul}, ${startMul - 2}, ${startMul - 4}, …) and the subtractor (${startSub}, ${startSub - 2}, ${startSub - 4}, …) descend by 2 each step.`,
+    terms,
+  };
+};
+
+// H35: second-difference is arithmetic, descending (Δ² decreases by 2 each step)
+const secondDiffArithDesc: PatternGenerator = (rng, length) => {
+  const start = rng.int(400, 700);
+  const startGap = rng.int(1, 3);
+  let gap = startGap;
+  let secondGap = -2;
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + gap);
+    gap += secondGap;
+    secondGap -= 2;
+  }
+  return {
+    kind: 'second-diff-arith-desc',
+    difficulty: 'hard',
+    formula: 'Δ² descends by 2',
+    explanation: 'The gaps between consecutive terms change by an amount that itself decreases by 2 each step (second-difference is arithmetic with negative step).',
+    terms,
+  };
+};
+
+// H36: aₙ₊₁ = 2·aₙ + (decreasing constant starting at +1)
+const mul2AddDecreasing: PatternGenerator = (rng, length) => {
+  const start = rng.int(1, 6);
+  let v = start;
+  const terms: number[] = [v];
+  let add = 1;
+  for (let i = 1; i < length; i++) {
+    v = v * 2 + add;
+    terms.push(v);
+    add -= 1;
+  }
+  return {
+    kind: 'mul2-add-decreasing',
+    difficulty: 'hard',
+    formula: 'aₙ₊₁ = 2aₙ + (decreasing constant)',
+    explanation: 'Each step: double the previous term, then add a constant that decreases by 1 (+1, 0, −1, −2, −3, …).',
+    terms,
+  };
+};
+
+// H37: gaps are descending (n² − 1)
+const gapsDescN2Minus1: PatternGenerator = (rng, length) => {
+  const startN = Math.max(length + 1, 7);
+  const start = rng.int(3, 15);
+  const terms: number[] = [start];
+  let n = startN;
+  for (let i = 1; i < length; i++) {
+    if (n < 2) {
+      terms.push(terms[i - 1]! + 1);
+    } else {
+      terms.push(terms[i - 1]! + (n * n - 1));
+      n -= 1;
+    }
+  }
+  return {
+    kind: 'gaps-desc-n2-minus-1',
+    difficulty: 'hard',
+    formula: 'gaps are descending (n²−1)',
+    explanation: `The gaps between terms are (n²−1) with n descending: +(${startN}²−1)=+${startN * startN - 1}, +(${startN - 1}²−1)=+${(startN - 1) * (startN - 1) - 1}, +(${startN - 2}²−1)=+${(startN - 2) * (startN - 2) - 1}, …`,
+    terms,
+  };
+};
+
+// H38: squares of consecutive primes (p ≥ 7)
+const PRIMES_GE_7 = [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+const primeSquares: PatternGenerator = (rng, length) => {
+  const maxOffset = Math.max(0, PRIMES_GE_7.length - length);
+  const offset = rng.int(0, maxOffset + 1);
+  const used = PRIMES_GE_7.slice(offset, offset + length);
+  const terms = used.map((p) => p * p);
+  return {
+    kind: 'prime-squares',
+    difficulty: 'hard',
+    formula: 'aₙ = p² (p prime, p ≥ 7)',
+    explanation: `Squares of consecutive primes (starting at ${used[0]}²): ${used.slice(0, 4).map((p) => `${p}²`).join(', ')}, …`,
+    terms,
+  };
+};
+
+// H39: chained ÷K then subtract a decreasing constant
+const divThenSubDecreasing: PatternGenerator = (rng, length) => {
+  const divisor = 5;
+  const lastTerm = rng.int(8, 25);
+  const reverseTerms: number[] = [lastTerm];
+  let k = 2;
+  for (let i = 1; i < length; i++) {
+    const prev = (reverseTerms[i - 1]! + k) * divisor;
+    reverseTerms.push(prev);
+    k += 1;
+  }
+  const terms = reverseTerms.reverse();
+  return {
+    kind: 'div-then-sub-decreasing',
+    difficulty: 'hard',
+    formula: `aₙ₊₁ = aₙ/${divisor} − (decreasing k)`,
+    explanation: `Each step: divide by ${divisor}, then subtract a constant that decreases by 1 each step (−${length}, −${length - 1}, −${length - 2}, …).`,
+    terms,
+  };
+};
+
 export const HARD_GENERATORS: PatternGenerator[] = [
   secondDiffArith,
   n2MinusK,
@@ -295,4 +581,18 @@ export const HARD_GENERATORS: PatternGenerator[] = [
   deceptiveStart,
   chainedTwoOp,
   factorial,
+  halfStepMultiplier,
+  addCubeMinus1,
+  mulByNSubN,
+  mulDescSub1,
+  altMulOp,
+  altSignShrinking,
+  gapsAreSquarePlusCube,
+  mulByNAddNSquared,
+  descendingDualMulSub,
+  secondDiffArithDesc,
+  mul2AddDecreasing,
+  gapsDescN2Minus1,
+  primeSquares,
+  divThenSubDecreasing,
 ];
