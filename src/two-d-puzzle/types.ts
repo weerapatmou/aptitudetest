@@ -61,6 +61,8 @@ export type Puzzle = {
   /** Indices into `choices` that together fill the gap. */
   correctIndices: number[];
   difficulty: Difficulty;
+  /** Shared origin-centered viewBox so the main shape and all pieces share one scale. */
+  viewBox: string;
 };
 
 export type Settings = {

@@ -9,7 +9,6 @@ import { ChoiceCard } from './ChoiceCard';
 import { SolutionFigure } from './SolutionFigure';
 import { HowToPlay } from './HowToPlay';
 import { generateSession } from './generate';
-import { frameViewBox } from './generate/layout';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 
@@ -358,10 +357,7 @@ function SheetScreen({
         {results.map((r, i) => {
           const selected = answers[i] ?? [];
           // One shared scale for the main shape and all four pieces of this question.
-          const vb = frameViewBox(
-            r.puzzle.completed,
-            r.puzzle.choices.map((c) => c.piece),
-          );
+          const vb = r.puzzle.viewBox;
           return (
             <section key={r.puzzle.id} id={`q-${i}`} className="flex flex-col gap-4 scroll-mt-24">
               <div className="flex items-center justify-between gap-3">

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generatePuzzle, generateSession, piecesForDifficulty } from '../generate';
 import { area } from '../generate/notch';
+import { isRotationCongruent } from '../generate/congruence';
 import { makeRng } from '../../rotation-puzzle/generate/rng';
 import { polygonBounds } from '../../rotation-puzzle/generate/geometry';
 import type { Difficulty, DifficultyOrMixed, ShapeScope } from '../types';
@@ -28,6 +29,29 @@ describe('2D puzzle generation — structure', () => {
             if (!c.isCorrect) {
               expect(c.kind).not.toBe('correct');
               expect(c.explanation.length).toBeGreaterThan(0);
+            }
+          }
+        }
+      });
+    }
+  }
+});
+
+describe('2D puzzle generation — no distractor can actually fit (mirror-bug regression)', () => {
+  for (const diff of DIFFS) {
+    for (const scope of SCOPES) {
+      it(`${diff}/${scope}: every wrong choice is non-fitting and never a near-twin`, () => {
+        for (let i = 0; i < 80; i++) {
+          const p = generatePuzzle(diff, scope, makeRng(0x5e3d + i), `t-${i}`);
+          const correct = p.choices.filter((c) => c.isCorrect).map((c) => c.piece.polygon);
+          for (const c of p.choices) {
+            if (c.isCorrect) continue;
+            // The subtle, indistinguishable trap is gone.
+            expect(c.kind).not.toBe('near-twin');
+            // A wrong piece must not be a pure rotation of any correct piece
+            // (this is exactly the symmetric-mirror case that used to pass).
+            for (const cp of correct) {
+              expect(isRotationCongruent(c.piece.polygon, cp)).toBe(false);
             }
           }
         }

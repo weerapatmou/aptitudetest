@@ -1,7 +1,7 @@
 import type { Choice, Difficulty, DifficultyOrMixed, Puzzle, Settings, ShapeScope } from '../types';
 import { buildBase, partition } from './notch';
 import { buildDistractors } from './distractors';
-import { layoutPiece } from './layout';
+import { frameHalfExtent, layoutPiece, viewBoxFromHalf } from './layout';
 import { defaultRng, makeRng, type Rng } from '../../rotation-puzzle/generate/rng';
 
 const ALL_DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
@@ -34,6 +34,11 @@ export function generatePuzzle(
     const pieces = partition(base.missing, k, rng);
     if (!pieces) continue;
 
+    // Shared scale, anchored to the square + correct pieces (never distractors).
+    const half = frameHalfExtent(base.completed, pieces);
+    const viewBox = viewBoxFromHalf(half);
+    const budget = half - 6; // max piece radius that still sits inside the card
+
     const correct: Choice[] = pieces.map((poly) => ({
       piece: layoutPiece(poly, rng),
       isCorrect: true,
@@ -41,7 +46,7 @@ export function generatePuzzle(
       explanation: 'Rotates into the gap — part of the completed square.',
     }));
 
-    const distractors: Choice[] = buildDistractors(pieces, 4 - k, rng).map((d) => ({
+    const distractors: Choice[] = buildDistractors(pieces, 4 - k, rng, budget).map((d) => ({
       piece: layoutPiece(d.polygon, rng),
       isCorrect: false,
       kind: d.kind,
@@ -60,6 +65,7 @@ export function generatePuzzle(
       choices,
       correctIndices,
       difficulty: effective,
+      viewBox,
     };
   }
 

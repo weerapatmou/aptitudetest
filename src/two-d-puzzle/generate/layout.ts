@@ -19,16 +19,21 @@ export function layoutPiece(polygon: Polygon, rng: Rng): Piece {
 }
 
 /**
- * One origin-centered square viewBox shared by the main shape and every choice
- * piece of a question, so they all render at the SAME scale (a piece that fills
- * the gap looks gap-sized). The half-extent fits the main shape AND any piece at
- * any rotation (pieces render centroid-shifted to the origin, so `maxRadius` is
- * a rotation-safe bound), plus padding so nothing touches the card border.
+ * Half-extent of the shared, origin-centered square frame for a question. It is
+ * anchored to the target square and the CORRECT pieces only — never the
+ * distractors — so an over-scaled wrong piece can't inflate the frame and shrink
+ * the reference. Fits the main shape and any correct piece at any rotation
+ * (pieces render centroid-shifted to the origin, so `maxRadius` is a rotation-safe
+ * bound), plus padding so nothing touches the card border.
  */
-export function frameViewBox(completed: Polygon, pieces: Piece[], padding = 14): string {
+export function frameHalfExtent(completed: Polygon, correctPieces: Polygon[], padding = 14): number {
   const b = polygonBounds(completed);
   let half = Math.max(b.maxX - b.minX, b.maxY - b.minY) / 2;
-  for (const pc of pieces) half = Math.max(half, maxRadius(pc.polygon));
-  const h = half + padding;
-  return `${-h} ${-h} ${2 * h} ${2 * h}`;
+  for (const p of correctPieces) half = Math.max(half, maxRadius(p));
+  return half + padding;
+}
+
+/** Build the shared viewBox string from a half-extent. */
+export function viewBoxFromHalf(half: number): string {
+  return `${-half} ${-half} ${2 * half} ${2 * half}`;
 }
