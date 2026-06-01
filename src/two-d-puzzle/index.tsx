@@ -167,7 +167,12 @@ export function TwoDPuzzle({ onHome }: Props = {}) {
         )}
 
         {phase === 'summary' && (
-          <SummaryScreen results={results} elapsedMs={elapsed} onAgain={() => setPhase('setup')} />
+          <SummaryScreen
+            results={results}
+            elapsedMs={elapsed}
+            onBack={() => setPhase('sheet')}
+            onAgain={() => setPhase('setup')}
+          />
         )}
       </main>
     </div>
@@ -524,10 +529,12 @@ function RevealPanel({ result }: { result: SheetResult }) {
 function SummaryScreen({
   results,
   elapsedMs,
+  onBack,
   onAgain,
 }: {
   results: SheetResult[];
   elapsedMs: number;
+  onBack: () => void;
   onAgain: () => void;
 }) {
   const total = results.length;
@@ -610,12 +617,20 @@ function SummaryScreen({
         )}
       </div>
 
-      <button
-        onClick={onAgain}
-        className="w-full px-4 py-3 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-sm font-semibold hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
-      >
-        New session
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={onBack}
+          className="sm:w-auto px-4 py-3 rounded-xl border border-border text-text-dim hover:text-text hover:bg-bg-card-hover font-mono uppercase tracking-wider text-sm transition"
+        >
+          ← Review answers
+        </button>
+        <button
+          onClick={onAgain}
+          className="flex-1 px-4 py-3 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-sm font-semibold hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
+        >
+          New session
+        </button>
+      </div>
 
       <span className="sr-only">{DIFFICULTY_LABEL.easy}</span>
     </div>
