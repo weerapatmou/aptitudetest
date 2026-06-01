@@ -3,8 +3,9 @@ import { RotationPuzzle } from '@/rotation-puzzle';
 import { MatchingPartsPuzzle } from '@/matching-parts-puzzle';
 import { PolygonAssemblyPuzzle } from '@/polygon-assembly-puzzle';
 import { NumberSeriesPuzzle } from '@/number-series-puzzle';
+import { TwoDPuzzle } from '@/two-d-puzzle';
 
-type Mode = 'home' | 'rotation' | 'matching' | 'polygon-assembly' | 'number-series';
+type Mode = 'home' | 'rotation' | 'matching' | 'polygon-assembly' | 'number-series' | 'two-d-puzzle';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -16,6 +17,7 @@ function readMode(): Mode {
     raw === 'matching' ||
     raw === 'polygon-assembly' ||
     raw === 'number-series' ||
+    raw === 'two-d-puzzle' ||
     raw === 'home'
   )
     return raw;
@@ -46,6 +48,9 @@ export function App() {
       )}
       {mode === 'number-series' && (
         <NumberSeriesPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'two-d-puzzle' && (
+        <TwoDPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -135,6 +140,21 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
               ?
             </text>
             <rect x={7} y={-3} width={6} height={8} rx={1} opacity={0.7} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'two-d-puzzle',
+      title: '2D Puzzle',
+      tagline: 'Spatial Assembly',
+      description:
+        'A square is shown with a chunk missing. Select the combination of pieces that rotate and combine to complete it. One piece may be enough — or several together.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M -9 -9 H 2 V -2 H 9 V 9 H -9 Z" />
+            <path d="M 4 -9 L 10 -9 L 10 -3 Z" opacity={0.6} />
           </g>
         </svg>
       ),
