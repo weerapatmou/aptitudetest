@@ -1,12 +1,13 @@
-import type { Difficulty, PatternKind, SeriesQuestion, SeriesSettings } from '../types';
+import type { Difficulty, PatternKind, SeriesPattern, SeriesQuestion, SeriesSettings } from '../types';
 import { defaultRng, makeRng } from './rng';
 import type { Rng } from './rng';
 import { buildOptions } from './distractors';
-import { EASY_GENERATORS } from './patterns/easy';
-import { MEDIUM_GENERATORS } from './patterns/medium';
-import { HARD_GENERATORS } from './patterns/hard';
-import { EXPERT_GENERATORS } from './patterns/expert';
+import { EASY_GENERATORS, arithAddSmall } from './patterns/easy';
+import { MEDIUM_GENERATORS, fibonacci } from './patterns/medium';
+import { HARD_GENERATORS, lucas } from './patterns/hard';
+import { EXPERT_GENERATORS, padovan } from './patterns/expert';
 import type { PatternGenerator } from './patterns/easy';
+import { isMentallyTractable } from './tractability';
 
 const GENERATORS_BY_DIFFICULTY: Record<Difficulty, PatternGenerator[]> = {
   easy: EASY_GENERATORS,
@@ -14,6 +15,18 @@ const GENERATORS_BY_DIFFICULTY: Record<Difficulty, PatternGenerator[]> = {
   hard: HARD_GENERATORS,
   expert: EXPERT_GENERATORS,
 };
+
+// If many draws in a row are too hard to solve mentally, fall back to a
+// guaranteed step-derivable generator for the tier so a question is always
+// produced. Each generator tags itself with the matching difficulty.
+const SAFE_FALLBACK_BY_DIFFICULTY: Record<Difficulty, PatternGenerator> = {
+  easy: arithAddSmall,
+  medium: fibonacci,
+  hard: lucas,
+  expert: padovan,
+};
+
+const MAX_TRACTABILITY_ATTEMPTS = 16;
 
 const ALL_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'expert'];
 
@@ -37,6 +50,32 @@ const MIN_LENGTH_BY_KIND: Partial<Record<PatternKind, number>> = {
 const MIDDLE_BLANK_PROBABILITY = 0.3;
 
 /**
+ * One draw: pick a length, pick a generator, materialize it, and re-roll once
+ * with a longer window if the kind needs more visible cycles. Kept as a single
+ * unit so the tractability re-roll loop can repeat it identically (preserving
+ * the rng draw sequence per attempt, hence determinism).
+ */
+function drawPattern(
+  generators: PatternGenerator[],
+  rng: Rng,
+  minLen: number,
+  maxLen: number,
+): SeriesPattern {
+  const initialLength = rng.int(minLen, maxLen + 1);
+  const gen = rng.pick(generators);
+  let pattern = gen(rng, initialLength);
+
+  // Interleaved / mod-cycle patterns need a longer window so the user can
+  // see at least 2–3 full cycles before the blank. If the initial draw was
+  // too short, re-roll the same generator with the required length.
+  const required = MIN_LENGTH_BY_KIND[pattern.kind];
+  if (required !== undefined && pattern.terms.length < required) {
+    pattern = gen(rng, required);
+  }
+  return pattern;
+}
+
+/**
  * Generate a single number-series question for the given difficulty.
  * `difficulty: 'mixed'` rolls a uniform random difficulty per question.
  */
@@ -49,16 +88,20 @@ export function generateSeriesQuestion(
 
   const generators = GENERATORS_BY_DIFFICULTY[effective];
   const [minLen, maxLen] = SEQUENCE_LENGTH_BY_DIFFICULTY[effective];
-  const initialLength = rng.int(minLen, maxLen + 1);
-  const gen = rng.pick(generators);
-  let pattern = gen(rng, initialLength);
 
-  // Interleaved / mod-cycle patterns need a longer window so the user can
-  // see at least 2–3 full cycles before the blank. If the initial draw was
-  // too short, re-roll the same generator with the required length.
-  const required = MIN_LENGTH_BY_KIND[pattern.kind];
-  if (required !== undefined && pattern.terms.length < required) {
-    pattern = gen(rng, required);
+  // Draw a pattern, then re-roll while it isn't solvable by mental arithmetic
+  // (e.g. squares of large primes, nⁿ, 2^(n²)). The gate is pure, so the happy
+  // path consumes no extra rng draws and stays deterministic per seed.
+  let pattern = drawPattern(generators, rng, minLen, maxLen);
+  for (
+    let attempts = 0;
+    attempts < MAX_TRACTABILITY_ATTEMPTS && !isMentallyTractable(pattern);
+    attempts++
+  ) {
+    pattern = drawPattern(generators, rng, minLen, maxLen);
+  }
+  if (!isMentallyTractable(pattern)) {
+    pattern = SAFE_FALLBACK_BY_DIFFICULTY[effective](rng, rng.int(minLen, maxLen + 1));
   }
   const effectiveLength = pattern.terms.length;
 

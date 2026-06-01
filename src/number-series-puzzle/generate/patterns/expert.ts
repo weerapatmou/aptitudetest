@@ -217,7 +217,7 @@ const fibTimesN: PatternGenerator = (_rng, length) => {
 };
 
 // X14: Padovan — aₙ = aₙ₋₂ + aₙ₋₃, seeds 1, 1, 1
-const padovan: PatternGenerator = (_rng, length) => {
+export const padovan: PatternGenerator = (_rng, length) => {
   const terms: number[] = [1, 1, 1];
   for (let i = 3; i < length; i++) terms.push(terms[i - 2]! + terms[i - 3]!);
   return {

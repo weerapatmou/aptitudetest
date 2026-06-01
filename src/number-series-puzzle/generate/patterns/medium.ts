@@ -119,7 +119,7 @@ const squaresOffset: PatternGenerator = (rng, length) => {
 };
 
 // M9: Fibonacci-like
-const fibonacci: PatternGenerator = (rng, length) => {
+export const fibonacci: PatternGenerator = (rng, length) => {
   const a = rng.int(1, 4);
   const b = rng.int(1, 5);
   const terms: number[] = [a, b];

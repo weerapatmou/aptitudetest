@@ -11,7 +11,7 @@ export function roundDec(n: number, places = 4): number {
 }
 
 // E1: constant addition, small step
-const arithAddSmall: PatternGenerator = (rng, length) => {
+export const arithAddSmall: PatternGenerator = (rng, length) => {
   const k = rng.int(1, 6); // 1..5
   const start = rng.int(1, 20);
   const terms = Array.from({ length }, (_, i) => start + k * i);

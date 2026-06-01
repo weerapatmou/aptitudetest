@@ -91,7 +91,7 @@ const quadraticGeneral: PatternGenerator = (rng, length) => {
 };
 
 // H9: Lucas numbers
-const lucas: PatternGenerator = (_rng, length) => {
+export const lucas: PatternGenerator = (_rng, length) => {
   const terms: number[] = [2, 1];
   for (let i = 2; i < length; i++) terms.push(terms[i - 1]! + terms[i - 2]!);
   return {
@@ -527,17 +527,19 @@ const gapsDescN2Minus1: PatternGenerator = (rng, length) => {
   };
 };
 
-// H38: squares of consecutive primes (p ≥ 7)
-const PRIMES_GE_7 = [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+// H38: squares of consecutive primes. Kept to small primes so the terms stay
+// recognizable backwards in the head (19² = 361 is the largest); larger prime
+// squares like 23² = 529 are too hard to spot from the number alone.
+const SMALL_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19];
 const primeSquares: PatternGenerator = (rng, length) => {
-  const maxOffset = Math.max(0, PRIMES_GE_7.length - length);
+  const maxOffset = Math.max(0, SMALL_PRIMES.length - length);
   const offset = rng.int(0, maxOffset + 1);
-  const used = PRIMES_GE_7.slice(offset, offset + length);
+  const used = SMALL_PRIMES.slice(offset, offset + length);
   const terms = used.map((p) => p * p);
   return {
     kind: 'prime-squares',
     difficulty: 'hard',
-    formula: 'aₙ = p² (p prime, p ≥ 7)',
+    formula: 'aₙ = p² (p prime)',
     explanation: `Squares of consecutive primes (starting at ${used[0]}²): ${used.slice(0, 4).map((p) => `${p}²`).join(', ')}, …`,
     terms,
   };
