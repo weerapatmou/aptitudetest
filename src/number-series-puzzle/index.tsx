@@ -677,7 +677,9 @@ function SheetScreen({
     const picked = answers[i];
     return acc + (picked !== undefined && q.options[picked]?.isCorrect ? 1 : 0);
   }, 0);
-  const accuracy = total > 0 ? Math.round((score / total) * 100) : 0;
+  // Accuracy = correct out of attempted; Score = correct out of total.
+  const accuracyPct = answeredCount > 0 ? Math.round((score / answeredCount) * 100) : 0;
+  const scorePct = total > 0 ? Math.round((score / total) * 100) : 0;
 
   return (
     <>
@@ -722,13 +724,22 @@ function SheetScreen({
           </button>
           {submitted ? (
             <>
-              <div className="font-mono text-xs text-text-dim">
-                Score{' '}
-                <span className="text-text tabular-nums">
-                  {score}<span className="text-text-dim/60">/{total}</span>
+              <div className="font-mono text-xs text-text-dim flex flex-wrap items-center gap-x-2 gap-y-0.5 justify-center">
+                <span>
+                  Accuracy{' '}
+                  <span className="text-text tabular-nums">
+                    {score}<span className="text-text-dim/60">/{answeredCount}</span>
+                  </span>{' '}
+                  <span className="text-accent tabular-nums">({accuracyPct}%)</span>
                 </span>
-                <span className="text-text-dim/40 mx-1.5">·</span>
-                <span className="text-accent tabular-nums">{accuracy}%</span>
+                <span className="text-text-dim/40">·</span>
+                <span>
+                  Score{' '}
+                  <span className="text-text tabular-nums">
+                    {score}<span className="text-text-dim/60">/{total}</span>
+                  </span>{' '}
+                  <span className="text-accent tabular-nums">({scorePct}%)</span>
+                </span>
               </div>
               <button
                 onClick={onViewSummary}
@@ -769,7 +780,10 @@ function SummaryScreen({
 }) {
   const total = results.length;
   const correct = results.filter((r) => r.correct).length;
-  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const attempted = results.filter((r) => r.pickedIndex >= 0).length;
+  // Accuracy = correct out of attempted; Score = correct out of total.
+  const accuracyPct = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+  const scorePct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
   const byDifficulty: Record<Difficulty, { correct: number; total: number }> = {
     easy: { correct: 0, total: 0 },
@@ -794,10 +808,28 @@ function SummaryScreen({
         <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent mb-2">
           Overall
         </div>
-        <div className="flex items-baseline gap-3">
-          <div className="font-display text-4xl text-text tabular-nums">{accuracy}%</div>
-          <div className="text-text-dim text-sm">
-            {correct}/{total} correct
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-dim mb-1">
+              Accuracy
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="font-display text-4xl text-text tabular-nums">{accuracyPct}%</div>
+              <div className="text-text-dim text-sm tabular-nums">
+                {correct}/{attempted}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-dim mb-1">
+              Score
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="font-display text-4xl text-text tabular-nums">{scorePct}%</div>
+              <div className="text-text-dim text-sm tabular-nums">
+                {correct}/{total}
+              </div>
+            </div>
           </div>
         </div>
       </div>
