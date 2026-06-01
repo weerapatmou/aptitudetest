@@ -9,6 +9,7 @@ import { ChoiceCard } from './ChoiceCard';
 import { SolutionFigure } from './SolutionFigure';
 import { HowToPlay } from './HowToPlay';
 import { generateSession } from './generate';
+import { frameViewBox } from './generate/layout';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 
@@ -356,6 +357,11 @@ function SheetScreen({
       <div className="flex flex-col gap-12 pb-28">
         {results.map((r, i) => {
           const selected = answers[i] ?? [];
+          // One shared scale for the main shape and all four pieces of this question.
+          const vb = frameViewBox(
+            r.puzzle.completed,
+            r.puzzle.choices.map((c) => c.piece),
+          );
           return (
             <section key={r.puzzle.id} id={`q-${i}`} className="flex flex-col gap-4 scroll-mt-24">
               <div className="flex items-center justify-between gap-3">
@@ -365,34 +371,31 @@ function SheetScreen({
                 {submitted && <DifficultyBadge difficulty={r.puzzle.difficulty} />}
               </div>
 
-              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-                <div className="shrink-0 self-center">
-                  <div className="relative rounded-2xl border-2 border-accent/40 bg-bg-card p-3 text-text shadow-[0_0_40px_-16px_var(--accent)]">
-                    <div
-                      className="flex items-center justify-center"
-                      style={{ width: 'var(--svg-slot)', height: 'var(--svg-slot)' }}
-                    >
-                      <PromptFigure main={r.puzzle.main} className="w-full h-full" />
-                    </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 items-start">
+                <div className="relative rounded-2xl border-2 border-accent/40 bg-bg-card p-3 text-text shadow-[0_0_40px_-16px_var(--accent)]">
+                  <div className="absolute top-2 left-2 z-10 font-mono text-[11px] tracking-widest text-accent">
+                    ?
+                  </div>
+                  <div className="w-full aspect-square flex items-center justify-center">
+                    <PromptFigure main={r.puzzle.main} viewBox={vb} className="w-full h-full" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
-                  {r.puzzle.choices.map((choice, ci) => (
-                    <ChoiceCard
-                      key={`${r.puzzle.id}-${ci}`}
-                      choice={choice}
-                      letter={LETTERS[ci]!}
-                      index={ci}
-                      selected={selected.includes(ci)}
-                      revealed={submitted}
-                      focused={false}
-                      onToggle={() => onToggle(i, ci)}
-                      onFocus={() => {}}
-                      reduced={reduced}
-                    />
-                  ))}
-                </div>
+                {r.puzzle.choices.map((choice, ci) => (
+                  <ChoiceCard
+                    key={`${r.puzzle.id}-${ci}`}
+                    choice={choice}
+                    letter={LETTERS[ci]!}
+                    index={ci}
+                    selected={selected.includes(ci)}
+                    revealed={submitted}
+                    focused={false}
+                    viewBox={vb}
+                    onToggle={() => onToggle(i, ci)}
+                    onFocus={() => {}}
+                    reduced={reduced}
+                  />
+                ))}
               </div>
 
               {submitted && <RevealPanel result={r} />}

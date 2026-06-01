@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { Choice } from './types';
 import { Piece } from '../matching-parts-puzzle/Piece';
-import { choiceViewBox } from './generate/layout';
 
 type Props = {
   choice: Choice;
@@ -12,6 +11,8 @@ type Props = {
   selected: boolean;
   revealed: boolean;
   focused: boolean;
+  /** Shared origin-centered viewBox so every piece renders at one scale. */
+  viewBox: string;
   onToggle: () => void;
   onFocus: () => void;
   reduced: boolean;
@@ -24,12 +25,12 @@ export function ChoiceCard({
   selected,
   revealed,
   focused,
+  viewBox,
   onToggle,
   onFocus,
   reduced,
 }: Props) {
   const ref = useRef<HTMLButtonElement>(null);
-  const { x, y, w, h } = choiceViewBox(choice.piece);
 
   const correctPick = revealed && choice.isCorrect && selected;
   const wrongPick = revealed && !choice.isCorrect && selected;
@@ -86,12 +87,9 @@ export function ChoiceCard({
           )}
         </div>
       )}
-      <div
-        className="flex items-center justify-center"
-        style={{ width: 'calc(var(--svg-slot) * 0.78)', height: 'calc(var(--svg-slot) * 0.78)' }}
-      >
+      <div className="w-full aspect-square flex items-center justify-center">
         <svg
-          viewBox={`${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}`}
+          viewBox={viewBox}
           className="w-full h-full"
           preserveAspectRatio="xMidYMid meet"
           aria-hidden="true"
