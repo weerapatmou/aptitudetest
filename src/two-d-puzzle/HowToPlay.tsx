@@ -48,10 +48,10 @@ export function HowToPlay({ open, onClose }: Props) {
             </div>
             <div className="space-y-3 text-sm text-text-dim leading-relaxed">
               <p>
-                Each question shows a main shape on the left — a square with a chunk missing.
+                Each question shows a main shape on the left — a shape with a chunk missing.
                 Select the combination of pieces (<span className="text-accent">a, b, c, d</span>)
                 that can be <span className="text-text">rotated and combined</span> to fit
-                perfectly into the gap and complete the square.
+                perfectly into the gap and complete the shape.
               </p>
               <p>
                 <span className="text-text">More than one piece can be correct.</span> A question
@@ -60,7 +60,7 @@ export function HowToPlay({ open, onClose }: Props) {
               </p>
               <p>
                 Answer every question in any order, then press{' '}
-                <span className="text-text">Submit</span> to reveal the completed square, the
+                <span className="text-text">Submit</span> to reveal the completed shape, the
                 correct letters, and why each wrong piece doesn't belong. Difficulty labels stay
                 hidden until you submit, so you can scan and tackle the easy ones first.
               </p>

@@ -1,37 +1,15 @@
 import type { Polygon, Pt, ShapeScope } from '../types';
 import {
   cutPolygon,
-  signedArea,
   splitPolygonByPolyline,
 } from '../../matching-parts-puzzle/generate/cuts';
-import { centroid, polygonBounds } from '../../rotation-puzzle/generate/geometry';
+import { polygonBounds, pointInPolygon } from '../../rotation-puzzle/generate/geometry';
 import type { Rng } from '../../rotation-puzzle/generate/rng';
+import { area, pickBase, recenter, rectangle, SIDE } from './bases';
 
-/** Half-side of the completed square; the square spans [-SIDE/2, SIDE/2]. */
-export const SIDE = 140;
-
-/** Axis-aligned rectangle centered on the origin. */
-export function rectangle(w: number, h: number): Polygon {
-  const hw = w / 2;
-  const hh = h / 2;
-  return [
-    { x: -hw, y: -hh },
-    { x: hw, y: -hh },
-    { x: hw, y: hh },
-    { x: -hw, y: hh },
-  ];
-}
-
-/** |area| of a polygon. */
-export function area(poly: Polygon): number {
-  return Math.abs(signedArea(poly));
-}
-
-/** Translate a polygon so its centroid sits at the origin. */
-export function recenter(poly: Polygon): Polygon {
-  const c = centroid(poly);
-  return poly.map((p) => ({ x: p.x - c.x, y: p.y - c.y }));
-}
+// Base-shape primitives live in bases.ts; re-export so existing importers
+// (distractors.ts, congruence.ts, tests) keep importing them from here.
+export { area, recenter, rectangle, SIDE };
 
 export type Base = {
   /** The full square/rectangle the pieces complete. */
@@ -42,7 +20,7 @@ export type Base = {
   missing: Polygon;
 };
 
-// ---- boundary helpers (completed is always an axis-aligned rectangle) ----
+// ---- boundary helpers (work on any convex base polygon) ----
 
 type BP = { pt: Pt; edgeIdx: number; edgeT: number };
 
@@ -109,35 +87,40 @@ function cutOff(completed: Polygon, b1: BP, b2: BP, bends: Pt[]): Base | null {
 }
 
 // ---- notch templates ----
-// Each carves a distinctive missing region out of the completed rectangle.
+// Each carves a distinctive missing region out of the completed base shape.
 
-/** Diagonal slice off a corner → triangular gap, pentagon main (PDF #21). */
+/** Diagonal slice off a corner → triangular gap (PDF #21). */
 function cornerTriangle(c: Polygon, rng: Rng): Base | null {
-  const v = rng.int(0, 4);
-  const e1 = (v + 3) % 4; // edge ending at corner v
+  const n = c.length;
+  const v = rng.int(0, n);
+  const e1 = (v + n - 1) % n; // edge ending at corner v
   const e2 = v; // edge leaving corner v
   const f1 = 0.42 + rng.next() * 0.32;
   const f2 = 0.42 + rng.next() * 0.32;
   return cutOff(c, bp(c, e1, 1 - f1), bp(c, e2, f2), []);
 }
 
-/** Rectangular bite out of a corner → L-shaped main (PDF #29). */
+/** Parallelogram bite out of a corner → L-shaped main (PDF #29). */
 function cornerRect(c: Polygon, rng: Rng): Base | null {
-  const v = rng.int(0, 4);
-  const e1 = (v + 3) % 4;
+  const n = c.length;
+  const v = rng.int(0, n);
+  const e1 = (v + n - 1) % n;
   const e2 = v;
   const f1 = 0.36 + rng.next() * 0.3;
   const f2 = 0.36 + rng.next() * 0.3;
   const b1 = bp(c, e1, 1 - f1);
   const b2 = bp(c, e2, f2);
   const corner = c[v]!;
+  // Parallelogram completion of the corner — a rectangle at right angles, a
+  // parallelogram at slanted ones. Skip if the inner vertex falls outside.
   const inner: Pt = { x: b1.pt.x + b2.pt.x - corner.x, y: b1.pt.y + b2.pt.y - corner.y };
+  if (!pointInPolygon(inner, c)) return null;
   return cutOff(c, b1, b2, [inner]);
 }
 
 /** Rectangular notch cut into the middle of an edge (PDF #32/#40). */
 function edgeRect(c: Polygon, rng: Rng): Base | null {
-  const e = rng.int(0, 4);
+  const e = rng.int(0, c.length);
   const minDim = Math.min(
     polygonBounds(c).maxX - polygonBounds(c).minX,
     polygonBounds(c).maxY - polygonBounds(c).minY,
@@ -154,7 +137,7 @@ function edgeRect(c: Polygon, rng: Rng): Base | null {
 
 /** Triangular (V) notch cut into an edge. */
 function edgeTriangle(c: Polygon, rng: Rng): Base | null {
-  const e = rng.int(0, 4);
+  const e = rng.int(0, c.length);
   const minDim = Math.min(
     polygonBounds(c).maxX - polygonBounds(c).minX,
     polygonBounds(c).maxY - polygonBounds(c).minY,
@@ -172,7 +155,7 @@ function edgeTriangle(c: Polygon, rng: Rng): Base | null {
 
 /** Trapezoidal notch (narrower at the base) cut into an edge. */
 function edgeTrapezoid(c: Polygon, rng: Rng): Base | null {
-  const e = rng.int(0, 4);
+  const e = rng.int(0, c.length);
   const len = edgeLen(c, e);
   const minDim = Math.min(
     polygonBounds(c).maxX - polygonBounds(c).minX,
@@ -194,7 +177,7 @@ function edgeTrapezoid(c: Polygon, rng: Rng): Base | null {
 
 /** Stepped (L-shaped) notch cut into an edge → two-level bite. */
 function edgeStep(c: Polygon, rng: Rng): Base | null {
-  const e = rng.int(0, 4);
+  const e = rng.int(0, c.length);
   const minDim = Math.min(
     polygonBounds(c).maxX - polygonBounds(c).minX,
     polygonBounds(c).maxY - polygonBounds(c).minY,
@@ -214,6 +197,23 @@ function edgeStep(c: Polygon, rng: Rng): Base | null {
   const i3 = add(mid, nrm, d2);
   const i4 = add(b2.pt, nrm, d2);
   return cutOff(c, b1, b2, [i1, i2, i3, i4]);
+}
+
+/** Deep, narrow rectangular slit cut into an edge (PDF #26/#40 look). */
+function edgeSlit(c: Polygon, rng: Rng): Base | null {
+  const e = rng.int(0, c.length);
+  const minDim = Math.min(
+    polygonBounds(c).maxX - polygonBounds(c).minX,
+    polygonBounds(c).maxY - polygonBounds(c).minY,
+  );
+  const t1 = 0.28 + rng.next() * 0.18;
+  const t2 = t1 + (0.18 + rng.next() * 0.12); // narrow mouth
+  if (t2 > 0.84) return null;
+  const nrm = inwardNormal(c, e);
+  const depth = (0.5 + rng.next() * 0.22) * minDim; // deep
+  const b1 = bp(c, e, t1);
+  const b2 = bp(c, e, t2);
+  return cutOff(c, b1, b2, [add(b1.pt, nrm, depth), add(b2.pt, nrm, depth)]);
 }
 
 /** Organic free cut (random chord or single bend) — keeps some variety smooth. */
@@ -244,6 +244,7 @@ const TEMPLATES: Array<{ fn: Template; weight: number }> = [
   { fn: edgeTriangle, weight: 2 },
   { fn: edgeTrapezoid, weight: 2 },
   { fn: edgeStep, weight: 2 },
+  { fn: edgeSlit, weight: 2 },
   { fn: organicCut, weight: 2 },
 ];
 
@@ -263,10 +264,7 @@ function pickTemplate(rng: Rng): Template {
  * it. The smaller piece becomes the gap to fill; the larger is the main shape.
  */
 export function buildBase(scope: ShapeScope, rng: Rng): Base | null {
-  const completed =
-    scope === 'square-rect' && rng.bool(0.5)
-      ? rectangle(SIDE * (1.0 + rng.next() * 0.6), SIDE) // aspect 1.0–1.6
-      : rectangle(SIDE, SIDE);
+  const completed = pickBase(scope, rng);
 
   for (let attempt = 0; attempt < 40; attempt++) {
     const base = pickTemplate(rng)(completed, rng);
@@ -285,16 +283,17 @@ const MIN_PIECE_AREA = 320;
 
 /**
  * Split the missing region into exactly `k` pieces by repeatedly cutting the
- * largest current piece with a straight chord. Returns the pieces in
- * completed-shape local coords (their true positions), or null if a clean
- * partition couldn't be found.
+ * largest current piece. Most cuts are straight chords, but ~40% are bent
+ * polylines so multi-piece gaps yield concave dart/chevron pieces (PDF-like).
+ * Returns the pieces in completed-shape local coords (their true positions),
+ * or null if a clean partition couldn't be found.
  */
 export function partition(missing: Polygon, k: number, rng: Rng): Polygon[] | null {
   if (k <= 1) return [missing];
 
   let pieces: Polygon[] = [missing];
   let guard = 0;
-  while (pieces.length < k && guard++ < 60) {
+  while (pieces.length < k && guard++ < 80) {
     // Always split the largest piece so areas stay balanced.
     let li = 0;
     let best = -Infinity;
@@ -306,10 +305,15 @@ export function partition(missing: Polygon, k: number, rng: Rng): Polygon[] | nu
       }
     }
     const target = pieces[li]!;
-    const cut = cutPolygon(target, 'straight-chord', rng);
+    const strategy = rng.next() < 0.4 ? 'polyline' : 'straight-chord';
+    const cut = cutPolygon(target, strategy, rng);
     if (!cut) continue;
     const [s0, s1] = cut.pieces;
     if (area(s0) < MIN_PIECE_AREA || area(s1) < MIN_PIECE_AREA) continue;
+    // Reject any cut whose pieces don't tile the parent exactly — a bent
+    // (polyline) cut can self-intersect on a thin piece, which would break the
+    // "pieces fill the gap" guarantee.
+    if (Math.abs(area(s0) + area(s1) - area(target)) > 0.5) continue;
     pieces = [...pieces.slice(0, li), s0, s1, ...pieces.slice(li + 1)];
   }
 

@@ -203,6 +203,11 @@ function SetupScreen({
       label: 'Square + Rectangle',
       hint: 'Puzzles complete to a square or a rectangle, for more variety.',
     },
+    {
+      value: 'varied',
+      label: 'Varied shapes',
+      hint: 'Squares, rectangles, rotated squares, parallelograms, trapezoids, pentagons and hexagons — the most variety.',
+    },
   ];
 
   const difficultyHint: Record<DifficultyOrMixed, string> = {
@@ -216,8 +221,8 @@ function SetupScreen({
     <div className="max-w-xl mx-auto rounded-2xl border border-border bg-bg-card p-6 md:p-8">
       <h2 className="font-display text-2xl font-semibold text-text mb-2">2D Puzzle</h2>
       <p className="text-text-dim text-sm mb-6 leading-relaxed">
-        A square is shown with a chunk missing. Pick the combination of pieces that — rotated and
-        combined — fills the gap to complete the square. Answer the whole sheet, then submit to
+        A shape is shown with a chunk missing. Pick the combination of pieces that — rotated and
+        combined — fills the gap to complete the shape. Answer the whole sheet, then submit to
         reveal everything at once.
       </p>
 

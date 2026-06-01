@@ -47,8 +47,8 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   hard: 'Hard',
 };
 
-/** Whether completed shapes are only squares or may also be rectangles. */
-export type ShapeScope = 'square' | 'square-rect';
+/** Which completed base shapes a session draws from. */
+export type ShapeScope = 'square' | 'square-rect' | 'varied';
 
 export type Puzzle = {
   id: string;

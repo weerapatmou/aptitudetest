@@ -7,7 +7,7 @@ import { polygonBounds } from '../../rotation-puzzle/generate/geometry';
 import type { Difficulty, DifficultyOrMixed, ShapeScope } from '../types';
 
 const DIFFS: DifficultyOrMixed[] = ['easy', 'normal', 'hard', 'mixed'];
-const SCOPES: ShapeScope[] = ['square', 'square-rect'];
+const SCOPES: ShapeScope[] = ['square', 'square-rect', 'varied'];
 
 const ALLOWED_K: Record<Difficulty, number[]> = {
   easy: [1],
@@ -92,6 +92,26 @@ describe('2D puzzle generation — main + correct pieces reconstruct the complet
       expect(mb.minY).toBeGreaterThanOrEqual(cb.minY - 0.01);
       expect(mb.maxX).toBeLessThanOrEqual(cb.maxX + 0.01);
       expect(mb.maxY).toBeLessThanOrEqual(cb.maxY + 0.01);
+    }
+  });
+});
+
+describe('2D puzzle generation — varied scope produces varied base shapes', () => {
+  it('pentagons (5) and hexagons (6) appear alongside quadrilaterals (4)', () => {
+    const counts = new Set<number>();
+    for (let i = 0; i < 400; i++) {
+      const p = generatePuzzle('mixed', 'varied', makeRng(0x7a1e + i), `t-${i}`);
+      counts.add(p.completed.length);
+    }
+    expect(counts.has(4)).toBe(true);
+    expect(counts.has(5)).toBe(true);
+    expect(counts.has(6)).toBe(true);
+  });
+
+  it('square scope only ever produces 4-gon bases', () => {
+    for (let i = 0; i < 60; i++) {
+      const p = generatePuzzle('mixed', 'square', makeRng(0x9c2 + i), `t-${i}`);
+      expect(p.completed.length).toBe(4);
     }
   });
 });
