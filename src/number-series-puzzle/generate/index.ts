@@ -38,14 +38,32 @@ const SEQUENCE_LENGTH_BY_DIFFICULTY: Record<Difficulty, [number, number]> = {
   expert: [5, 6],
 };
 
-// Patterns whose rule is split across positions by a modular cycle need
-// enough visible terms for the user to spot the lane structure. Total
-// sequence length (the blank counts as one term).
+// Patterns that need more visible terms before the rule is readable. Two cases:
+//   - interleaved / mod-cycle patterns: enough terms to show the lane structure.
+//   - recurrences (Padovan, Pell, …) and high-order patterns: with only 5–6 terms
+//     the rule is impossible to spot, so give them a longer run.
+// Total sequence length (the blank counts as one term).
 const MIN_LENGTH_BY_KIND: Partial<Record<PatternKind, number>> = {
   'interleaved-2': 7,
   'pair-skip': 7,
   'interleaved-3': 10,
+  padovan: 9,
+  'third-diff-pattern': 9,
+  pell: 8,
+  'deceptive-start': 8,
+  'fib-times-n': 8,
 };
+
+// Recurrence / high-order patterns where the solver must see a long run to infer
+// the rule. Pin the blank to the last position so every preceding term is shown
+// as context (predict the next term rather than fill a gap).
+const LAST_BLANK_KINDS: ReadonlySet<PatternKind> = new Set<PatternKind>([
+  'padovan',
+  'third-diff-pattern',
+  'pell',
+  'deceptive-start',
+  'fib-times-n',
+]);
 
 const MIDDLE_BLANK_PROBABILITY = 0.3;
 
@@ -107,8 +125,13 @@ export function generateSeriesQuestion(
 
   // Pick blank position. 70% last, 30% middle (positions 2..length-2 so the
   // user sees at least the first two terms and at least one term after the blank).
+  // Recurrence / high-order kinds always blank the last term so the full run is visible.
   let missingIndex = effectiveLength - 1;
-  if (rng.next() < MIDDLE_BLANK_PROBABILITY && effectiveLength >= 5) {
+  if (
+    !LAST_BLANK_KINDS.has(pattern.kind) &&
+    rng.next() < MIDDLE_BLANK_PROBABILITY &&
+    effectiveLength >= 5
+  ) {
     const lo = 2;
     const hi = effectiveLength - 2; // inclusive
     if (hi >= lo) missingIndex = rng.int(lo, hi + 1);

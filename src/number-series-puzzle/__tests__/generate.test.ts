@@ -123,6 +123,31 @@ describe('interleaved / mod-cycle patterns get enough visible terms', () => {
   }
 });
 
+describe('recurrence patterns get a long readable run with a trailing blank', () => {
+  const REQUIRED: Array<{ kind: string; difficulty: Difficulty; minLen: number }> = [
+    { kind: 'padovan', difficulty: 'expert', minLen: 9 },
+    { kind: 'third-diff-pattern', difficulty: 'expert', minLen: 9 },
+    { kind: 'fib-times-n', difficulty: 'expert', minLen: 8 },
+    { kind: 'pell', difficulty: 'hard', minLen: 8 },
+    { kind: 'deceptive-start', difficulty: 'hard', minLen: 8 },
+  ];
+
+  for (const { kind, difficulty, minLen } of REQUIRED) {
+    it(`${kind}: has ≥ ${minLen} terms and blanks the last one`, () => {
+      const rng = makeRng(20260601);
+      let sawKind = 0;
+      for (let i = 0; i < 1200 && sawKind < 8; i++) {
+        const q = generateSeriesQuestion(difficulty, rng);
+        if (q.pattern.kind !== kind) continue;
+        sawKind++;
+        expect(q.pattern.terms.length).toBeGreaterThanOrEqual(minLen);
+        expect(q.missingIndex).toBe(q.visibleTerms.length - 1);
+      }
+      expect(sawKind).toBeGreaterThan(0);
+    });
+  }
+});
+
 describe('generateSession', () => {
   it('produces the requested number of questions', () => {
     const session = generateSession({ count: 12, difficulty: 'medium' }, 1);
