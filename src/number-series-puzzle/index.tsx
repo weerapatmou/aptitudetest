@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import clsx from 'clsx';
-import type { Difficulty, SeriesQuestion, SeriesSettings, SessionResult } from './types';
+import type {
+  Difficulty,
+  PracticeMode,
+  SeriesQuestion,
+  SeriesSettings,
+  SessionResult,
+} from './types';
 import { DIFFICULTY_LABEL } from './types';
 import { DifficultyBadge } from './DifficultyBadge';
 import { QuestionCard } from './QuestionCard';
@@ -13,7 +19,7 @@ import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 const COUNT_PRESETS = [5, 10, 20, 50] as const;
 
-type Phase = 'setup' | 'answering' | 'revealed' | 'summary';
+type Phase = 'setup' | 'answering' | 'revealed' | 'sheet' | 'summary';
 
 type Props = {
   difficulty?: Difficulty;
@@ -24,7 +30,11 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
   const [settings, setSettings] = useLocalStorage<SeriesSettings>('numberSeries:settings', {
     count: 10,
     difficulty: difficultyProp ?? 'mixed',
+    mode: 'sequential',
   });
+
+  // Stored settings predating the `mode` field would be `undefined`; normalize.
+  const mode: PracticeMode = settings.mode ?? 'sequential';
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [questions, setQuestions] = useState<SeriesQuestion[]>([]);
@@ -32,23 +42,56 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
   const [pick, setPick] = useState<number | null>(null);
   const [focused, setFocused] = useState(0);
   const [results, setResults] = useState<SessionResult[]>([]);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [sheetSubmitted, setSheetSubmitted] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const reduced = useReducedMotion();
 
-  const { elapsed, reset: resetTimer } = useTimer(phase === 'answering' || phase === 'revealed');
+  const timerRunning =
+    phase === 'answering' ||
+    phase === 'revealed' ||
+    (phase === 'sheet' && !sheetSubmitted);
+  const { elapsed, reset: resetTimer } = useTimer(timerRunning);
 
   const current = questions[currentIdx] ?? null;
 
   const startSession = useCallback(() => {
     const generated = generateSession(settings);
     setQuestions(generated);
-    setCurrentIdx(0);
-    setPick(null);
-    setFocused(0);
     setResults([]);
     resetTimer();
-    setPhase('answering');
-  }, [settings, resetTimer]);
+    if (mode === 'sheet') {
+      setAnswers({});
+      setSheetSubmitted(false);
+      setPhase('sheet');
+    } else {
+      setCurrentIdx(0);
+      setPick(null);
+      setFocused(0);
+      setPhase('answering');
+    }
+  }, [settings, mode, resetTimer]);
+
+  const handleSheetPick = useCallback(
+    (qIdx: number, optIdx: number) => {
+      if (sheetSubmitted) return;
+      setAnswers((prev) => ({ ...prev, [qIdx]: optIdx }));
+    },
+    [sheetSubmitted],
+  );
+
+  const submitSheet = useCallback(() => {
+    if (sheetSubmitted) return;
+    const computed: SessionResult[] = questions.map((q, i) => {
+      const picked = answers[i];
+      if (picked === undefined) {
+        return { question: q, pickedIndex: -1, correct: false };
+      }
+      return { question: q, pickedIndex: picked, correct: q.options[picked]!.isCorrect };
+    });
+    setResults(computed);
+    setSheetSubmitted(true);
+  }, [questions, answers, sheetSubmitted]);
 
   const handlePick = useCallback(
     (idx: number) => {
@@ -82,6 +125,8 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
     setCurrentIdx(0);
     setPick(null);
     setResults([]);
+    setAnswers({});
+    setSheetSubmitted(false);
   }, []);
 
   // Keyboard navigation during answering / revealed
@@ -130,6 +175,12 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
   const score = useMemo(() => results.filter((r) => r.correct).length, [results]);
   const accuracy = results.length > 0 ? Math.round((score / results.length) * 100) : 0;
 
+  // Hide SCORE during sheet answering so correctness can't be inferred early.
+  const showScore =
+    phase === 'answering' || phase === 'revealed' || (phase === 'sheet' && sheetSubmitted);
+  const showTimer =
+    phase === 'answering' || phase === 'revealed' || phase === 'sheet';
+
   return (
     <div className="min-h-full bg-instrument">
       <HowToPlay open={showHelp} onClose={() => setShowHelp(false)} />
@@ -158,25 +209,25 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
             </div>
           )}
           <div className="ml-auto flex items-center gap-3 md:gap-5 font-mono text-xs">
-            {(phase === 'answering' || phase === 'revealed') && (
-              <>
-                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
-                  <span className="text-text-dim/70">SCORE</span>
-                  <span className="text-text tabular-nums">
-                    {score}<span className="text-text-dim/60">/{results.length}</span>
-                  </span>
-                  {results.length > 0 && (
-                    <>
-                      <span className="text-text-dim/40">·</span>
-                      <span className="text-accent tabular-nums">{accuracy}%</span>
-                    </>
-                  )}
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
-                  <span className="text-text-dim/70">T</span>
-                  <span className="text-text tabular-nums">{formatDuration(elapsed)}</span>
-                </div>
-              </>
+            {showScore && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
+                <span className="text-text-dim/70">SCORE</span>
+                <span className="text-text tabular-nums">
+                  {score}<span className="text-text-dim/60">/{results.length}</span>
+                </span>
+                {results.length > 0 && (
+                  <>
+                    <span className="text-text-dim/40">·</span>
+                    <span className="text-accent tabular-nums">{accuracy}%</span>
+                  </>
+                )}
+              </div>
+            )}
+            {showTimer && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
+                <span className="text-text-dim/70">T</span>
+                <span className="text-text tabular-nums">{formatDuration(elapsed)}</span>
+              </div>
             )}
             <button
               onClick={() => setShowHelp(true)}
@@ -247,6 +298,19 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
           </div>
         )}
 
+        {phase === 'sheet' && (
+          <SheetScreen
+            questions={questions}
+            answers={answers}
+            submitted={sheetSubmitted}
+            reduced={!!reduced}
+            onPick={handleSheetPick}
+            onSubmit={submitSheet}
+            onEndSession={backToSetup}
+            onViewSummary={() => setPhase('summary')}
+          />
+        )}
+
         {phase === 'summary' && (
           <SummaryScreen
             results={results}
@@ -280,6 +344,16 @@ function SetupScreen({
     { value: 'mixed', label: 'Mixed' },
   ];
 
+  const modes: Array<{ value: PracticeMode; label: string; hint: string }> = [
+    { value: 'sequential', label: 'One at a time', hint: 'Answer → instant feedback → next.' },
+    {
+      value: 'sheet',
+      label: 'Practice sheet',
+      hint: 'All questions on one page — answer in any order, then submit to reveal everything. No difficulty labels shown.',
+    },
+  ];
+  const activeMode: PracticeMode = settings.mode ?? 'sequential';
+
   return (
     <div className="max-w-xl mx-auto rounded-2xl border border-border bg-bg-card p-6 md:p-8">
       <h2 className="font-display text-2xl font-semibold text-text mb-2">Number Series</h2>
@@ -290,6 +364,34 @@ function SetupScreen({
       </p>
 
       <div className="space-y-5">
+        <div>
+          <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+            Mode
+          </label>
+          <div className="flex flex-wrap gap-1.5 rounded-xl border border-border bg-bg p-1.5">
+            {modes.map((m) => {
+              const active = activeMode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  onClick={() => onChange({ ...settings, mode: m.value })}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-lg text-xs uppercase tracking-wider font-mono transition',
+                    active
+                      ? 'bg-accent text-bg shadow-[0_0_18px_-4px_var(--accent)]'
+                      : 'text-text-dim hover:text-text hover:bg-bg-card-hover',
+                  )}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px] text-text-dim/80">
+            {modes.find((m) => m.value === activeMode)?.hint}
+          </p>
+        </div>
+
         <div>
           <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
             Difficulty
@@ -437,6 +539,7 @@ function OptionCard({
   const revealed = phase === 'revealed';
   const showCorrectRing = revealed && isCorrect;
   const showWrongRing = revealed && selected && !isCorrect;
+  const showPendingRing = !revealed && selected;
 
   useEffect(() => {
     if (focused && ref.current) ref.current.focus({ preventScroll: true });
@@ -458,13 +561,16 @@ function OptionCard({
         !revealed && 'hover:bg-bg-card-hover hover:border-border-strong',
         showCorrectRing && 'border-correct',
         showWrongRing && 'border-wrong',
-        !showCorrectRing && !showWrongRing && 'border-border',
+        showPendingRing && 'border-accent',
+        !showCorrectRing && !showWrongRing && !showPendingRing && 'border-border',
       )}
       style={
         showCorrectRing
           ? { boxShadow: '0 0 0 2px var(--correct), 0 0 28px -6px var(--correct)' }
           : showWrongRing
           ? { boxShadow: '0 0 0 2px var(--wrong), 0 0 24px -6px var(--wrong)' }
+          : showPendingRing
+          ? { boxShadow: '0 0 0 2px var(--accent), 0 0 20px -8px var(--accent)' }
           : undefined
       }
     >
@@ -490,7 +596,9 @@ function RevealPanel({
   question: SeriesQuestion;
   pickedIndex: number;
 }) {
-  const correct = question.options[pickedIndex]!.isCorrect;
+  const pickedOption = pickedIndex >= 0 ? question.options[pickedIndex] : undefined;
+  const correct = pickedOption?.isCorrect ?? false;
+  const unanswered = pickedIndex < 0;
   const correctLetter =
     LETTERS[question.options.findIndex((o) => o.isCorrect)] ?? LETTERS[0];
   return (
@@ -504,7 +612,7 @@ function RevealPanel({
               correct ? 'text-correct' : 'text-wrong',
             )}
           >
-            {correct ? 'Correct' : 'Incorrect'}
+            {unanswered ? 'Not answered' : correct ? 'Correct' : 'Incorrect'}
           </div>
         </div>
         <div className="font-mono text-xs text-text-dim">
@@ -541,6 +649,112 @@ function RevealPanel({
         ))}
       </div>
     </div>
+  );
+}
+
+function SheetScreen({
+  questions,
+  answers,
+  submitted,
+  reduced,
+  onPick,
+  onSubmit,
+  onEndSession,
+  onViewSummary,
+}: {
+  questions: SeriesQuestion[];
+  answers: Record<number, number>;
+  submitted: boolean;
+  reduced: boolean;
+  onPick: (qIdx: number, optIdx: number) => void;
+  onSubmit: () => void;
+  onEndSession: () => void;
+  onViewSummary: () => void;
+}) {
+  const answeredCount = Object.keys(answers).length;
+  const total = questions.length;
+  const score = questions.reduce((acc, q, i) => {
+    const picked = answers[i];
+    return acc + (picked !== undefined && q.options[picked]?.isCorrect ? 1 : 0);
+  }, 0);
+  const accuracy = total > 0 ? Math.round((score / total) * 100) : 0;
+
+  return (
+    <>
+      <div className="flex flex-col gap-10 pb-28">
+        {questions.map((q, i) => {
+          const picked = answers[i];
+          const cardPhase: Phase = submitted ? 'revealed' : 'answering';
+          return (
+            <section key={q.id} id={`q-${i}`} className="flex flex-col gap-4 scroll-mt-24">
+              <QuestionCard
+                question={q}
+                questionNumber={i + 1}
+                totalQuestions={total}
+                hideDifficulty
+              />
+              <OptionsGrid
+                question={q}
+                phase={cardPhase}
+                pick={picked ?? null}
+                focused={-1}
+                onPick={(optIdx) => onPick(i, optIdx)}
+                onFocus={() => {}}
+                reduced={reduced}
+              />
+              {submitted && (
+                <div className="rounded-xl border border-border bg-bg-card p-4 md:p-5">
+                  <RevealPanel question={q} pickedIndex={picked ?? -1} />
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-bg/90 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between gap-3">
+          <button
+            onClick={onEndSession}
+            className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
+          >
+            {submitted ? '← New session' : '← End session'}
+          </button>
+          {submitted ? (
+            <>
+              <div className="font-mono text-xs text-text-dim">
+                Score{' '}
+                <span className="text-text tabular-nums">
+                  {score}<span className="text-text-dim/60">/{total}</span>
+                </span>
+                <span className="text-text-dim/40 mx-1.5">·</span>
+                <span className="text-accent tabular-nums">{accuracy}%</span>
+              </div>
+              <button
+                onClick={onViewSummary}
+                className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)] transition shrink-0"
+              >
+                View summary →
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="font-mono text-xs text-text-dim">
+                Answered{' '}
+                <span className="text-text tabular-nums">{answeredCount}</span>
+                <span className="text-text-dim/60">/{total}</span>
+              </div>
+              <button
+                onClick={onSubmit}
+                className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)] transition shrink-0"
+              >
+                Submit
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 

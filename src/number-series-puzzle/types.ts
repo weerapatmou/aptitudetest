@@ -134,9 +134,12 @@ export type SeriesQuestion = {
   pattern: SeriesPattern;
 };
 
+export type PracticeMode = 'sequential' | 'sheet';
+
 export type SeriesSettings = {
   count: number;
   difficulty: Difficulty | 'mixed';
+  mode?: PracticeMode; // optional: stored settings predating this field default to 'sequential'
 };
 
 export type SessionResult = {

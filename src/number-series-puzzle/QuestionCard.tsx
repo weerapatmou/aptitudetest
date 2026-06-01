@@ -6,16 +6,17 @@ type Props = {
   question: SeriesQuestion;
   questionNumber: number;
   totalQuestions: number;
+  hideDifficulty?: boolean;
 };
 
-export function QuestionCard({ question, questionNumber, totalQuestions }: Props) {
+export function QuestionCard({ question, questionNumber, totalQuestions, hideDifficulty }: Props) {
   return (
     <div className="rounded-2xl border-2 border-accent/40 bg-bg-card p-5 md:p-7 shadow-[0_0_40px_-12px_var(--accent)]">
       <div className="flex items-center justify-between gap-3 mb-5">
         <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">
           Question {questionNumber} <span className="text-text-dim/50">/ {totalQuestions}</span>
         </div>
-        <DifficultyBadge difficulty={question.difficulty} />
+        {!hideDifficulty && <DifficultyBadge difficulty={question.difficulty} />}
       </div>
 
       <div
