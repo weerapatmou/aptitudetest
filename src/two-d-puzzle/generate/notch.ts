@@ -3,7 +3,7 @@ import {
   cutPolygon,
   splitPolygonByPolyline,
 } from '../../matching-parts-puzzle/generate/cuts';
-import { polygonBounds, pointInPolygon } from '../../rotation-puzzle/generate/geometry';
+import { centroid, polygonBounds, pointInPolygon } from '../../rotation-puzzle/generate/geometry';
 import type { Rng } from '../../rotation-puzzle/generate/rng';
 import { area, pickBase, recenter, rectangle, SIDE } from './bases';
 
@@ -310,10 +310,20 @@ export function partition(missing: Polygon, k: number, rng: Rng): Polygon[] | nu
     if (!cut) continue;
     const [s0, s1] = cut.pieces;
     if (area(s0) < MIN_PIECE_AREA || area(s1) < MIN_PIECE_AREA) continue;
-    // Reject any cut whose pieces don't tile the parent exactly — a bent
-    // (polyline) cut can self-intersect on a thin piece, which would break the
-    // "pieces fill the gap" guarantee.
+    // Reject cuts whose pieces don't tile the parent exactly.
     if (Math.abs(area(s0) + area(s1) - area(target)) > 0.5) continue;
+    // Guard for concave targets (L-shape, step): a straight chord can exit the
+    // polygon and re-enter, producing pieces that bleed into the main shape.
+    // Check every segment-midpoint of the cut path is inside the target polygon.
+    const path = cut.cut.cutPath;
+    let cutIsInterior = true;
+    for (let pi = 0; pi < path.length - 1; pi++) {
+      const mid = { x: (path[pi]!.x + path[pi + 1]!.x) / 2, y: (path[pi]!.y + path[pi + 1]!.y) / 2 };
+      if (!pointInPolygon(mid, target)) { cutIsInterior = false; break; }
+    }
+    if (!cutIsInterior) continue;
+    // Final sanity: both piece centroids must be inside target (not inside main).
+    if (!pointInPolygon(centroid(s0), target) || !pointInPolygon(centroid(s1), target)) continue;
     pieces = [...pieces.slice(0, li), s0, s1, ...pieces.slice(li + 1)];
   }
 

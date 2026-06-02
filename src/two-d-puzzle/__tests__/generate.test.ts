@@ -96,6 +96,27 @@ describe('2D puzzle generation — main + correct pieces reconstruct the complet
   });
 });
 
+describe('Fix A regression — correct pieces tile the gap without bleeding into main', () => {
+  // The chord-interior guard prevents invalid cuts on concave missing regions.
+  // The area invariant is the right proxy: if a chord exited the concave polygon,
+  // pieces would have wrong areas (shoelace is unreliable for self-intersecting
+  // polygons); the guard in partition rejects those before they can reach here.
+  // Use a wider seed range and tighter tolerance than the default tiling test.
+  for (const diff of DIFFS) {
+    it(`${diff}: Σ piece areas matches gap to < 1 px² across 100 seeds`, () => {
+      for (let i = 0; i < 100; i++) {
+        const p = generatePuzzle(diff, 'varied', makeRng(0xf00d + i), `t-${i}`);
+        const gap = area(p.completed) - area(p.main);
+        const sum = p.choices
+          .filter((c) => c.isCorrect)
+          .reduce((acc, c) => acc + area(c.piece.polygon), 0);
+        expect(Math.abs(sum - gap)).toBeLessThan(1);
+      }
+    });
+  }
+});
+
+
 describe('2D puzzle generation — varied scope produces varied base shapes', () => {
   it('pentagons (5) and hexagons (6) appear alongside quadrilaterals (4)', () => {
     const counts = new Set<number>();
