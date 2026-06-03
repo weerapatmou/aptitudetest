@@ -4,8 +4,16 @@ import { MatchingPartsPuzzle } from '@/matching-parts-puzzle';
 import { PolygonAssemblyPuzzle } from '@/polygon-assembly-puzzle';
 import { NumberSeriesPuzzle } from '@/number-series-puzzle';
 import { TwoDPuzzle } from '@/two-d-puzzle';
+import { ApproximateCalculationPuzzle } from '@/approximate-calculation-puzzle';
 
-type Mode = 'home' | 'rotation' | 'matching' | 'polygon-assembly' | 'number-series' | 'two-d-puzzle';
+type Mode =
+  | 'home'
+  | 'rotation'
+  | 'matching'
+  | 'polygon-assembly'
+  | 'number-series'
+  | 'two-d-puzzle'
+  | 'approximate-calculation';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -18,6 +26,7 @@ function readMode(): Mode {
     raw === 'polygon-assembly' ||
     raw === 'number-series' ||
     raw === 'two-d-puzzle' ||
+    raw === 'approximate-calculation' ||
     raw === 'home'
   )
     return raw;
@@ -51,6 +60,9 @@ export function App() {
       )}
       {mode === 'two-d-puzzle' && (
         <TwoDPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'approximate-calculation' && (
+        <ApproximateCalculationPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -155,6 +167,21 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
           <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
             <path d="M -9 -9 H 2 V -2 H 9 V 9 H -9 Z" />
             <path d="M 4 -9 L 10 -9 L 10 -3 Z" opacity={0.6} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'approximate-calculation',
+      title: 'Approximate Calculation',
+      tagline: 'Numerical Estimation',
+      description:
+        'Word problems with numbers nudged just off round values. Round, estimate in your head, and pick the closest of five answers — speed, area, percentages, interest and more.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M -8 -4 q 4 -5 8 0 t 8 0" />
+            <path d="M -8 4 q 4 -5 8 0 t 8 0" opacity={0.55} />
           </g>
         </svg>
       ),
