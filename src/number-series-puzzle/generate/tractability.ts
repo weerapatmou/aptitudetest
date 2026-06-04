@@ -115,6 +115,11 @@ export function isMentallyTractable(pattern: SeriesPattern): boolean {
 
   if (terms.some((t) => Math.abs(t) > MAX_ABS_TERM)) return false;
 
+  // No fractional terms. Chains of fraction multipliers (×0.5, ×1.5, ×2.5, …
+  // or ×0.2, ×0.4, …) compound into long decimals (67.5, 2657.8125, 18.24) that
+  // can't be computed in the head. Integer instances of those same kinds still pass.
+  if (terms.some((t) => Math.abs(t - Math.round(t)) > 1e-9)) return false;
+
   if (CLOSED_FORM_KINDS.has(kind)) {
     return terms.every((t) => Math.abs(t) <= RECOGNITION_CAP);
   }

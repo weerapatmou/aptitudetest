@@ -130,6 +130,12 @@ describe('recurrence patterns get a long readable run with a trailing blank', ()
     { kind: 'fib-times-n', difficulty: 'expert', minLen: 8 },
     { kind: 'pell', difficulty: 'hard', minLen: 8 },
     { kind: 'deceptive-start', difficulty: 'hard', minLen: 8 },
+    // Position-varying multiplicative patterns (mul-by-2n-sub-2n omitted: it
+    // exceeds the magnitude backstop at length 7 and so appears only rarely).
+    { kind: 'mul3-sub-growing', difficulty: 'expert', minLen: 7 },
+    { kind: 'mul-n-add-next-square', difficulty: 'expert', minLen: 7 },
+    { kind: 'mul-by-n-add-n-squared', difficulty: 'hard', minLen: 7 },
+    { kind: 'mul-by-position-plus-1', difficulty: 'expert', minLen: 7 },
   ];
 
   for (const { kind, difficulty, minLen } of REQUIRED) {

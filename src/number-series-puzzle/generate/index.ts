@@ -52,17 +52,37 @@ const MIN_LENGTH_BY_KIND: Partial<Record<PatternKind, number>> = {
   pell: 8,
   'deceptive-start': 8,
   'fib-times-n': 8,
+  // Position-varying multiplicative patterns: the multiplier/offset changes with
+  // n, so 5 terms can't reveal the rule. Give them a 7-term run. The fastest
+  // grower (mul-by-2n-sub-2n) blows past MAX_ABS_TERM at length 7 and is dropped
+  // by the gate — acceptable, it can't show enough terms to be solvable anyway.
+  'mul3-sub-growing': 7,
+  'mul-by-2n-sub-2n': 7,
+  'mul-by-n-add-n-x-n-plus-1': 7,
+  'mul-n-add-next-square': 7,
+  'mul-growing-alt-add': 7,
+  'add-dec-mul-inc': 7,
+  'mul-by-n-add-n-squared': 7,
+  'mul-by-position-plus-1': 7,
 };
 
-// Recurrence / high-order patterns where the solver must see a long run to infer
-// the rule. Pin the blank to the last position so every preceding term is shown
-// as context (predict the next term rather than fill a gap).
+// Recurrence / high-order / position-varying patterns where the solver must see a
+// long run to infer the rule. Pin the blank to the last position so every
+// preceding term is shown as context (predict the next term rather than fill a gap).
 const LAST_BLANK_KINDS: ReadonlySet<PatternKind> = new Set<PatternKind>([
   'padovan',
   'third-diff-pattern',
   'pell',
   'deceptive-start',
   'fib-times-n',
+  'mul3-sub-growing',
+  'mul-by-2n-sub-2n',
+  'mul-by-n-add-n-x-n-plus-1',
+  'mul-n-add-next-square',
+  'mul-growing-alt-add',
+  'add-dec-mul-inc',
+  'mul-by-n-add-n-squared',
+  'mul-by-position-plus-1',
 ]);
 
 const MIDDLE_BLANK_PROBABILITY = 0.3;

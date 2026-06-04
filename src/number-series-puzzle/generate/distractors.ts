@@ -1,5 +1,6 @@
 import type { DistractorKind, SeriesOption, SeriesPattern } from '../types';
 import type { Rng } from './rng';
+import { roundDec } from './patterns/easy';
 
 type DistractorCandidate = {
   value: number;
@@ -55,13 +56,14 @@ export function buildOptions(
     });
   }
 
+  // Round to kill floating-point artifacts (e.g. 13.679999999999996 → 13.68).
   const correctOption: SeriesOption = {
-    value: correctValue,
+    value: roundDec(correctValue, 4),
     isCorrect: true,
     rationale: pattern.explanation,
   };
   const wrongOptions: SeriesOption[] = picked.slice(0, 3).map((d) => ({
-    value: d.value,
+    value: roundDec(d.value, 4),
     isCorrect: false,
     distractorKind: d.kind,
     rationale: d.rationale,

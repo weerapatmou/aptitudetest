@@ -40,6 +40,15 @@ describe('isMentallyTractable', () => {
       isMentallyTractable(pattern('descending-dual-mul-sub', [3, 25, 263, 2357, 16491, 82449, 247343])),
     ).toBe(false);
   });
+
+  it('rejects fractional (decimal) terms but keeps integer instances of the same kind', () => {
+    // ×0.5, ×1.5, ×2.5, … compounds into long decimals — not mentally solvable.
+    expect(isMentallyTractable(pattern('half-step-multiplier', [90, 45, 67.5, 168.75]))).toBe(false);
+    // ×0.2, ×0.4, … → 22.8, 18.24.
+    expect(isMentallyTractable(pattern('mul-growing-fraction', [475, 95, 38, 22.8, 18.24]))).toBe(false);
+    // an integer instance of a fraction-multiplier kind still passes.
+    expect(isMentallyTractable(pattern('geo-fractional', [96, 48, 36, 54, 27]))).toBe(true);
+  });
 });
 
 describe('generated questions are always mentally tractable', () => {
@@ -51,6 +60,9 @@ describe('generated questions are always mentally tractable', () => {
         for (let i = 0; i < 5; i++) {
           const q = generateSeriesQuestion(difficulty, rng);
           expect(isMentallyTractable(q.pattern)).toBe(true);
+          // Every term and every option value is a clean integer (no ugly decimals).
+          expect(q.pattern.terms.every(Number.isInteger)).toBe(true);
+          expect(q.options.every((o) => Number.isInteger(o.value))).toBe(true);
         }
       }
     },
