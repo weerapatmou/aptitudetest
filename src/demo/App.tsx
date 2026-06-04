@@ -5,6 +5,9 @@ import { PolygonAssemblyPuzzle } from '@/polygon-assembly-puzzle';
 import { NumberSeriesPuzzle } from '@/number-series-puzzle';
 import { TwoDPuzzle } from '@/two-d-puzzle';
 import { ApproximateCalculationPuzzle } from '@/approximate-calculation-puzzle';
+import { BlockTouchingPuzzle } from '@/block-touching-puzzle';
+import { CubeCountingPuzzle } from '@/cube-counting-puzzle';
+import { RotatedBlockPuzzle } from '@/rotated-block-puzzle';
 
 type Mode =
   | 'home'
@@ -13,7 +16,10 @@ type Mode =
   | 'polygon-assembly'
   | 'number-series'
   | 'two-d-puzzle'
-  | 'approximate-calculation';
+  | 'approximate-calculation'
+  | 'block-touching'
+  | 'cube-counting'
+  | 'rotated-block';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -27,6 +33,9 @@ function readMode(): Mode {
     raw === 'number-series' ||
     raw === 'two-d-puzzle' ||
     raw === 'approximate-calculation' ||
+    raw === 'block-touching' ||
+    raw === 'cube-counting' ||
+    raw === 'rotated-block' ||
     raw === 'home'
   )
     return raw;
@@ -63,6 +72,15 @@ export function App() {
       )}
       {mode === 'approximate-calculation' && (
         <ApproximateCalculationPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'block-touching' && (
+        <BlockTouchingPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'cube-counting' && (
+        <CubeCountingPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'rotated-block' && (
+        <RotatedBlockPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -182,6 +200,58 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
           <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
             <path d="M -8 -4 q 4 -5 8 0 t 8 0" />
             <path d="M -8 4 q 4 -5 8 0 t 8 0" opacity={0.55} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'block-touching',
+      title: 'Block Touching',
+      tagline: '3D Spatial Reasoning',
+      description:
+        'Equal-sized blocks are stacked in 3D. For each labelled block, count how many of its six faces sit flat against another block — edges and corners never count.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 0 -9 L 9 -4 L 0 1 L -9 -4 Z" />
+            <path d="M -9 -4 L -9 5 L 0 10 L 0 1 Z" />
+            <path d="M 9 -4 L 9 5 L 0 10 L 0 1 Z" opacity={0.55} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'cube-counting',
+      title: 'Block Counting',
+      tagline: '3D Spatial Reasoning',
+      description:
+        'Equal-sized cubes are stacked in 3D. Count how many cubes there are in total — including the hidden ones underneath that support what you can see.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 0 -9 L 9 -4 L 0 1 L -9 -4 Z" />
+            <path d="M -9 -4 L -9 5 L 0 10 L 0 1 Z" />
+            <path d="M 9 -4 L 9 5 L 0 10 L 0 1 Z" opacity={0.4} />
+            <text x={0} y={-2} fontSize={7} fill="var(--accent)" stroke="none" textAnchor="middle">
+              ?
+            </text>
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'rotated-block',
+      title: 'Rotated Blocks',
+      tagline: '3D Spatial Visualization',
+      description:
+        'A 3D block is shown. Find the one choice among five that is the same block rotated to a different angle — the rest are mirror images or have a block moved, added, removed, or stretched.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 0 -9 L 9 -4 L 9 5 L 0 10 L -9 5 L -9 -4 Z" />
+            <path d="M 0 -9 L 0 1 M 0 1 L 9 -4 M 0 1 L -9 -4" opacity={0.55} />
+            <path d="M -7 8 q 4 3 8 0" opacity={0.7} />
+            <path d="M 1 8 l 3 0 l -1 -2" opacity={0.7} />
           </g>
         </svg>
       ),
