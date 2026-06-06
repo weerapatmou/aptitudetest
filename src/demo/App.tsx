@@ -8,6 +8,7 @@ import { ApproximateCalculationPuzzle } from '@/approximate-calculation-puzzle';
 import { BlockTouchingPuzzle } from '@/block-touching-puzzle';
 import { CubeCountingPuzzle } from '@/cube-counting-puzzle';
 import { RotatedBlockPuzzle } from '@/rotated-block-puzzle';
+import { FlipBoxPuzzle } from '@/flip-box-puzzle';
 
 type Mode =
   | 'home'
@@ -19,7 +20,8 @@ type Mode =
   | 'approximate-calculation'
   | 'block-touching'
   | 'cube-counting'
-  | 'rotated-block';
+  | 'rotated-block'
+  | 'flip-box';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -36,6 +38,7 @@ function readMode(): Mode {
     raw === 'block-touching' ||
     raw === 'cube-counting' ||
     raw === 'rotated-block' ||
+    raw === 'flip-box' ||
     raw === 'home'
   )
     return raw;
@@ -81,6 +84,9 @@ export function App() {
       )}
       {mode === 'rotated-block' && (
         <RotatedBlockPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'flip-box' && (
+        <FlipBoxPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -252,6 +258,23 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
             <path d="M 0 -9 L 0 1 M 0 1 L 9 -4 M 0 1 L -9 -4" opacity={0.55} />
             <path d="M -7 8 q 4 3 8 0" opacity={0.7} />
             <path d="M 1 8 l 3 0 l -1 -2" opacity={0.7} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'flip-box',
+      title: 'Flip Box',
+      tagline: '3D Spatial Reasoning',
+      description:
+        'A marked cube is turned and flipped through a sequence of commands. Track the mark in your head and pick which of six choices shows where it ends up — replay each step on reveal.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 0 -9 L 9 -4 L 9 5 L 0 10 L -9 5 L -9 -4 Z" />
+            <path d="M 0 -9 L 0 1 M 0 1 L 9 -4 M 0 1 L -9 -4" opacity={0.5} />
+            <path d="M -4 -4 L 4 -4 M 0 -8 L 0 0" opacity={0.95} />
+            <path d="M 6 8 q 4 1 6 -3 M 12 5 l 0 3 l -3 -1" opacity={0.75} />
           </g>
         </svg>
       ),
