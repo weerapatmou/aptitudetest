@@ -1,0 +1,97 @@
+import { makeRng, defaultRng, type Rng } from '@/rotation-puzzle/generate/rng';
+import { pickOuterShape, generateOuter } from '@/rotation-puzzle/generate/outerShapes';
+import { minMirrorDistance, outerRotationalSymmetries } from '@/rotation-puzzle/generate/symmetry';
+import { sampleAngle } from '@/rotation-puzzle/generate/angles';
+import { buildDistractor, pickDistractorKinds, type Ctx } from './distractors';
+import { isPureRotationOf, polyRenderSignature } from './equivalence';
+import { displayedCloud, sharedViewBox } from './viewBox';
+import type { Choice, OuterShape, Pt, Puzzle, Settings, Transform } from '../types';
+
+const IDENTITY: Transform = { rotate: 0, flipX: false };
+
+/** Any outline kind that carries explicit vertices (everything except the ellipse). */
+type PolygonShape = Extract<OuterShape, { vertices: Pt[] }>;
+
+function isPolygonShape(s: OuterShape): s is PolygonShape {
+  return s.kind !== 'asymmetricEllipse';
+}
+
+/** A random asymmetric polygon outline — the ellipse is excluded (no vertices to distort). */
+function pickPolygonOuterShape(rng: Rng): PolygonShape {
+  for (let i = 0; i < 40; i++) {
+    const s = pickOuterShape(rng);
+    if (isPolygonShape(s)) return s;
+  }
+  const fallback = generateOuter('irregularPolygon', rng);
+  return fallback as PolygonShape;
+}
+
+function buildFourDistractors(reference: PolygonShape, rng: Rng): Choice[] | null {
+  const ctx: Ctx = { reference, rng };
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const kinds = pickDistractorKinds(rng);
+    const built = kinds
+      .map((k) => buildDistractor(k, ctx))
+      .filter((c): c is Choice => c !== null);
+    if (built.length === 4) return built;
+  }
+  return null;
+}
+
+export function generatePuzzle(rng: Rng, id: string): Puzzle {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const reference = pickPolygonOuterShape(rng);
+    if (minMirrorDistance(reference) < 8.5) continue;
+
+    const syms = outerRotationalSymmetries(reference);
+    const { theta } = sampleAngle('medium', syms, rng);
+
+    const correct: Choice = {
+      shape: reference,
+      transform: { rotate: theta, flipX: false },
+      isCorrect: true,
+      kind: 'correct',
+      explanation: 'the same outline, just turned.',
+    };
+
+    const distractors = buildFourDistractors(reference, rng);
+    if (!distractors) continue;
+
+    const all = [correct, ...distractors];
+
+    // Fairness: the correct option must be a pure rotation; no distractor may be.
+    if (!isPureRotationOf(reference, correct.shape, correct.transform)) continue;
+    if (distractors.some((d) => isPureRotationOf(reference, d.shape, d.transform))) continue;
+
+    // Distinctness: all five images differ from each other AND from the reference
+    // (so the correct option reads as genuinely re-oriented, not a copy).
+    const refSig = polyRenderSignature(reference, IDENTITY);
+    const sigs = all.map((c) => polyRenderSignature(c.shape, c.transform));
+    if (new Set(sigs).size !== 5) continue;
+    if (sigs.some((s) => s === refSig)) continue;
+
+    const shuffled = rng.shuffle(all);
+    const correctIndex = shuffled.indexOf(correct);
+    const clouds = [
+      displayedCloud(reference, IDENTITY),
+      ...shuffled.map((c) => displayedCloud(c.shape, c.transform)),
+    ];
+
+    return {
+      id,
+      reference,
+      choices: shuffled,
+      correctIndex,
+      rotation: theta,
+      viewBox: sharedViewBox(clouds),
+    };
+  }
+
+  // Defensive fallback: re-seed and try again (matches the existing modules).
+  return generatePuzzle(makeRng((Math.random() * 1e9) | 0), id);
+}
+
+export function generateSession(settings: Settings, seed?: number): Puzzle[] {
+  const rng = seed !== undefined ? makeRng(seed) : defaultRng;
+  return Array.from({ length: settings.count }, (_, i) => generatePuzzle(rng, `frs-${i}`));
+}

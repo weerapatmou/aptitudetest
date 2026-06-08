@@ -9,6 +9,7 @@ import { BlockTouchingPuzzle } from '@/block-touching-puzzle';
 import { CubeCountingPuzzle } from '@/cube-counting-puzzle';
 import { RotatedBlockPuzzle } from '@/rotated-block-puzzle';
 import { FlipBoxPuzzle } from '@/flip-box-puzzle';
+import { FindingRotatedShapesPuzzle } from '@/finding-rotated-shapes-puzzle';
 
 type Mode =
   | 'home'
@@ -21,7 +22,8 @@ type Mode =
   | 'block-touching'
   | 'cube-counting'
   | 'rotated-block'
-  | 'flip-box';
+  | 'flip-box'
+  | 'finding-rotated-shapes';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -39,6 +41,7 @@ function readMode(): Mode {
     raw === 'cube-counting' ||
     raw === 'rotated-block' ||
     raw === 'flip-box' ||
+    raw === 'finding-rotated-shapes' ||
     raw === 'home'
   )
     return raw;
@@ -87,6 +90,9 @@ export function App() {
       )}
       {mode === 'flip-box' && (
         <FlipBoxPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'finding-rotated-shapes' && (
+        <FindingRotatedShapesPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -275,6 +281,21 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
             <path d="M 0 -9 L 0 1 M 0 1 L 9 -4 M 0 1 L -9 -4" opacity={0.5} />
             <path d="M -4 -4 L 4 -4 M 0 -8 L 0 0" opacity={0.95} />
             <path d="M 6 8 q 4 1 6 -3 M 12 5 l 0 3 l -3 -1" opacity={0.75} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'finding-rotated-shapes',
+      title: 'Finding Rotated Shapes',
+      tagline: 'Spatial Reasoning',
+      description:
+        'A single outline shape is shown. Find the one option among five that is the same outline simply turned to another angle — the rest are mirror images or have a corner moved, added, removed, stretched, or skewed.',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="-9,-6 -2,-9 1,-2 -4,3 -8,1" />
+            <path d="M 3 7 q 6 -2 6 -8 M 9 -1 l 0 -4 l -4 1" opacity={0.7} />
           </g>
         </svg>
       ),
