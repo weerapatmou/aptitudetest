@@ -335,7 +335,24 @@ function SheetScreen({
                 <div className="font-mono text-xs text-text-dim">
                   Question <span className="text-text">{i + 1}</span> / {total}
                 </div>
-                {submitted && <DifficultyBadge difficulty={r.puzzle.difficulty} />}
+                {submitted ? (
+                  <DifficultyBadge difficulty={r.puzzle.difficulty} />
+                ) : (
+                  <div className="flex items-center gap-2 font-mono text-[11px]">
+                    <span className="text-text-dim/70 uppercase tracking-wider">Your answer:</span>
+                    <span className={clsx('tabular-nums', selected !== null ? 'text-accent' : 'text-text-dim/50')}>
+                      {selected !== null ? LETTERS[selected] : '—'}
+                    </span>
+                    {selected !== null && (
+                      <button
+                        onClick={() => onSelect(i, selected)}
+                        className="ml-1 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-text-dim hover:text-text hover:bg-bg-card-hover transition"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-start">

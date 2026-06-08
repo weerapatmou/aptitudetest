@@ -41,6 +41,11 @@ function externalFaces(solid: Polycube): number {
 }
 
 describe('renderSolid — culling & shading', () => {
+  it('at rest (0,0) a single cube shows exactly the 3 iso faces', () => {
+    // Matches iso.ts facets(): +x/+y/+z are the camera-facing faces.
+    expect(renderSolid(CUBE, 0, 0).length).toBe(3);
+  });
+
   it('a single cube shows 1–3 faces with shades in range', () => {
     for (const [yaw, pitch] of ANGLES) {
       const fs = renderSolid(CUBE, yaw, pitch);
@@ -64,15 +69,23 @@ describe('renderSolid — culling & shading', () => {
   });
 });
 
-describe('frame is rotation-invariant — block never clips', () => {
+/** Half-extent of an origin-centered square viewBox string. */
+function halfExtent(vb: string): number {
+  return Math.abs(parseFloat(vb.split(/\s+/)[0]!));
+}
+
+describe('frame never clips while spinning', () => {
+  const MANY: Array<[number, number]> = [];
+  for (let y = 0; y < 360; y += 23) for (let p = -85; p <= 85; p += 29) MANY.push([y, p]);
+
   for (const solid of [CUBE, DOMINO, L]) {
-    it('all projected points stay within the bounding-sphere radius', () => {
-      const r = boundingRadius(solid) + 1e-6;
-      for (const [yaw, pitch] of ANGLES) {
+    it('every projected point stays within the constant viewBox at all angles', () => {
+      const half = halfExtent(viewBoxFor(solid)) + 1e-6;
+      for (const [yaw, pitch] of MANY) {
         for (const f of renderSolid(solid, yaw, pitch)) {
           for (const p of f.points) {
-            expect(Math.abs(p.x)).toBeLessThanOrEqual(r);
-            expect(Math.abs(p.y)).toBeLessThanOrEqual(r);
+            expect(Math.abs(p.x)).toBeLessThanOrEqual(half);
+            expect(Math.abs(p.y)).toBeLessThanOrEqual(half);
           }
         }
       }

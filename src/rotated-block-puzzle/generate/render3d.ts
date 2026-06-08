@@ -11,7 +11,21 @@ export type Facet3D = {
 
 type Vec3 = { x: number; y: number; z: number };
 
-const S = 10; // screen units per cube edge (matched by the viewBox)
+// Matched to iso.ts so that at yaw=pitch=0 a block renders pixel-identically to
+// the static BlockFigure used while answering.
+const COS30 = Math.cos(Math.PI / 6); // ≈ 0.866
+const SIN30 = 0.5;
+const S = 10; // screen units per cube edge
+
+// The iso camera looks along +(1,1,1); a face is visible when its (rotated)
+// outward normal points toward it. This shows +x/+y/+z at rest, exactly like
+// iso.ts `facets()`.
+const EYE: Vec3 = { x: 1, y: 1, z: 1 };
+
+// Frame factor: the iso image of a sphere of radius ρ fits within √1.5·ρ on each
+// screen axis, for ANY rotation — so this constant frame never clips or
+// rescales while spinning.
+const FRAME = Math.sqrt(1.5) + 0.05; // ≈ 1.275
 
 // ---- vector / matrix helpers ----
 
@@ -38,22 +52,26 @@ function rotX(a: number): Mat3 {
     s = Math.sin(a);
   return [1, 0, 0, 0, c, -s, 0, s, c];
 }
-function rotY(a: number): Mat3 {
+function rotZ(a: number): Mat3 {
   const c = Math.cos(a),
     s = Math.sin(a);
-  return [c, 0, s, 0, 1, 0, -s, 0, c];
+  return [c, -s, 0, s, c, 0, 0, 0, 1];
 }
 
-// Base 3/4 tilt so the solid starts at a pleasant isometric-ish angle.
-const BASE_PITCH = (Math.atan(Math.SQRT1_2) * 180) / Math.PI; // ≈ 35.26°
-const BASE_YAW = 45;
-
-/** Rotation matrix for the given yaw/pitch (degrees), on top of the base tilt. */
+/**
+ * User rotation applied to the model before the fixed iso projection: yaw spins
+ * about the vertical Z axis (turntable), pitch tilts about model X. At (0,0)
+ * it's the identity, so the projection below equals the static iso view.
+ */
 export function rotationMatrix(yawDeg: number, pitchDeg: number): Mat3 {
-  const yaw = ((yawDeg + BASE_YAW) * Math.PI) / 180;
-  const pitch = ((pitchDeg + BASE_PITCH) * Math.PI) / 180;
-  // Pitch about screen-X applied after yaw about world-Y.
-  return mul(rotX(pitch), rotY(yaw));
+  const yaw = (yawDeg * Math.PI) / 180;
+  const pitch = (pitchDeg * Math.PI) / 180;
+  return mul(rotX(pitch), rotZ(yaw));
+}
+
+/** Project a model point (already rotated) with the iso camera. Screen y is down. */
+function project(q: Vec3): Pt {
+  return { x: (q.x - q.y) * COS30 * S, y: ((q.x + q.y) * SIN30 - q.z) * S };
 }
 
 // The six faces of a unit cube: outward normal, neighbour offset (for culling),
@@ -67,10 +85,10 @@ const FACE_DEFS: Array<{ normal: Vec3; neighbour: Cell; corners: Vec3[] }> = [
   { normal: { x: 0, y: -1, z: 0 }, neighbour: { x: 0, y: -1, z: 0 }, corners: [ { x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 1, y: 0, z: 1 }, { x: 0, y: 0, z: 1 } ] },
 ];
 
-// Camera looks along -Z (toward the screen); a face is visible when its rotated
-// normal points toward the viewer (+Z). Light comes from the upper-front.
+// Light from the upper-front; mostly top-down (+z) with a slight right bias so
+// the three rest faces read as top (brightest) / right (mid) / left (darker).
 const LIGHT: Vec3 = (() => {
-  const l = { x: -0.3, y: 0.5, z: 0.8 };
+  const l = { x: 0.35, y: 0.2, z: 0.95 };
   const n = Math.hypot(l.x, l.y, l.z);
   return { x: l.x / n, y: l.y / n, z: l.z / n };
 })();
@@ -94,8 +112,9 @@ function key(c: Cell): string {
 
 /**
  * Project a solid to 2D under a free rotation, with back-face culling, painter
- * ordering (back→front), and Lambert shading. Coordinates are centered on the
- * solid's centroid so it spins in place.
+ * ordering (back→front), and Lambert shading. At yaw=pitch=0 this reproduces the
+ * static iso view (same camera as iso.ts), so revealing/rotating never makes the
+ * block jump. Coordinates are centered on the centroid so it spins in place.
  */
 export function renderSolid(solid: Polycube, yawDeg: number, pitchDeg: number): Facet3D[] {
   const m = rotationMatrix(yawDeg, pitchDeg);
@@ -109,32 +128,31 @@ export function renderSolid(solid: Polycube, yawDeg: number, pitchDeg: number): 
       if (occupied.has(key(nb))) continue; // internal face
 
       const rn = apply(m, def.normal);
-      if (rn.z <= 0.0001) continue; // back-facing
+      if (rn.x * EYE.x + rn.y * EYE.y + rn.z * EYE.z <= 1e-4) continue; // back-facing the iso eye
 
       let depth = 0;
       const points: Pt[] = def.corners.map((corner) => {
-        const world = { x: c.x + corner.x - ctr.x, y: c.y + corner.y - ctr.y, z: c.z + corner.z - ctr.z };
-        const r = apply(m, world);
-        depth += r.z;
-        // Screen Y grows downward.
-        return { x: r.x * S, y: -r.y * S };
+        const q = apply(m, {
+          x: c.x + corner.x - ctr.x,
+          y: c.y + corner.y - ctr.y,
+          z: c.z + corner.z - ctr.z,
+        });
+        depth += q.x + q.y + q.z; // nearer to the (1,1,1) eye = larger
+        return project(q);
       });
       const shade = 0.45 + 0.55 * Math.max(0, rn.x * LIGHT.x + rn.y * LIGHT.y + rn.z * LIGHT.z);
-      // Stable tiebreaker for equal-depth faces so the draw order is a pure
-      // function of the cell set (independent of input array order).
+      // Stable tiebreaker for equal-depth faces so draw order is a pure function
+      // of the cell set (independent of input array order).
       const tie = points.reduce((s, p) => s + p.x * 1000 + p.y, 0);
       out.push({ points, shade, depth: depth / 4, tie });
     }
   }
 
-  out.sort((a, b) => a.depth - b.depth || a.tie - b.tie); // far (small z) first
+  out.sort((a, b) => a.depth - b.depth || a.tie - b.tie); // far (small sum) first
   return out.map((f) => ({ points: f.points, shade: f.shade }));
 }
 
-/**
- * Radius of the solid's bounding sphere in screen units — a constant frame so
- * the solid never clips or rescales while spinning.
- */
+/** Bounding-sphere radius of the solid in screen units (rotation-invariant). */
 export function boundingRadius(solid: Polycube): number {
   const ctr = centroid(solid);
   let r = 0;
@@ -146,9 +164,13 @@ export function boundingRadius(solid: Polycube): number {
   return r * S;
 }
 
-/** Origin-centered square viewBox sized to the bounding sphere (+padding). */
-export function viewBoxFor(solid: Polycube, padding = 4): string {
-  const r = boundingRadius(solid) + padding;
+/**
+ * Origin-centered square viewBox sized so the iso projection of the solid fits
+ * at any rotation (FRAME·radius) — constant, so the block never clips or
+ * rescales while spinning.
+ */
+export function viewBoxFor(solid: Polycube, padding = 3): string {
+  const r = FRAME * boundingRadius(solid) + padding;
   return `${-r} ${-r} ${2 * r} ${2 * r}`;
 }
 
@@ -160,8 +182,8 @@ export function sharedRadius(solids: Polycube[]): number {
 }
 
 /** Origin-centered square viewBox that fits every given solid at one scale. */
-export function sharedViewBox3D(solids: Polycube[], padding = 4): string {
-  const r = sharedRadius(solids) + padding;
+export function sharedViewBox3D(solids: Polycube[], padding = 3): string {
+  const r = FRAME * sharedRadius(solids) + padding;
   return `${-r} ${-r} ${2 * r} ${2 * r}`;
 }
 

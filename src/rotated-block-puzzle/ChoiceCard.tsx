@@ -1,8 +1,12 @@
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { Choice } from './types';
 import { BlockFigure } from './BlockFigure';
 import { RotatableBlock } from './RotatableBlock';
+
+// Ignore a "click" that was really a drag/scroll gesture (pointer moved this far).
+const TAP_SLOP = 8;
 
 type Props = {
   choice: Choice;
@@ -87,8 +91,77 @@ export function ChoiceCard({
   }
 
   return (
+    <AnsweringButton
+      selected={selected}
+      letter={letter}
+      index={index}
+      reduced={reduced}
+      className={className}
+      style={style}
+      onSelect={onSelect}
+    >
+      {Badge}
+      {selected && (
+        <div className="absolute top-2 right-2 z-10">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-accent">selected</span>
+        </div>
+      )}
+      <div className="w-full aspect-square flex items-center justify-center">
+        <BlockFigure solid={choice.solid} viewBox={viewBox} className="w-full h-full" />
+      </div>
+    </AnsweringButton>
+  );
+}
+
+/**
+ * The selectable card during answering. Commits only on a deliberate tap: a
+ * pointer that moves more than a few px (a scroll/drag) does not select, so the
+ * answer can't change by accident while scrolling the sheet. Keyboard
+ * activation (no pointer) still works.
+ */
+function AnsweringButton({
+  selected,
+  letter,
+  index,
+  reduced,
+  className,
+  style,
+  onSelect,
+  children,
+}: {
+  selected: boolean;
+  letter: string;
+  index: number;
+  reduced: boolean;
+  className: string;
+  style: React.CSSProperties | undefined;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const dragged = useRef(false);
+
+  return (
     <motion.button
-      onClick={onSelect}
+      onPointerDown={(e) => {
+        start.current = { x: e.clientX, y: e.clientY };
+        dragged.current = false;
+      }}
+      onPointerMove={(e) => {
+        if (!start.current) return;
+        if (Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > TAP_SLOP) {
+          dragged.current = true;
+        }
+      }}
+      onClick={() => {
+        // Pointer-driven click that was actually a drag → ignore. Keyboard
+        // activation leaves `dragged` false, so it still selects.
+        if (dragged.current) {
+          dragged.current = false;
+          return;
+        }
+        onSelect();
+      }}
       initial={reduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={reduced ? { duration: 0 } : { delay: index * 0.04, duration: 0.2 }}
@@ -98,10 +171,7 @@ export function ChoiceCard({
       className={className}
       style={style}
     >
-      {Badge}
-      <div className="w-full aspect-square flex items-center justify-center">
-        <BlockFigure solid={choice.solid} viewBox={viewBox} className="w-full h-full" />
-      </div>
+      {children}
     </motion.button>
   );
 }
