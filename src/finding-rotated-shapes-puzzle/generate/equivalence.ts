@@ -1,5 +1,6 @@
 import { samplePolygon, centroid, rotatePolygon } from '@/rotation-puzzle/generate/geometry';
 import { hausdorff } from '@/rotation-puzzle/generate/symmetry';
+import { displayedCloud } from './viewBox';
 import type { OuterShape, Pt, Transform } from '../types';
 
 const IDENTITY: Transform = { rotate: 0, flipX: false };
@@ -46,6 +47,60 @@ export function isPureRotationOf(
     if (best < TOL) return true;
   }
   return best < TOL;
+}
+
+/** Centered version of the on-screen displayed cloud (matches the renderer). */
+function centeredDisplayed(shape: OuterShape, t: Transform): Pt[] {
+  const pts = displayedCloud(shape, t, SAMPLE_N);
+  const c = centroid(pts);
+  return pts.map((p) => ({ x: p.x - c.x, y: p.y - c.y }));
+}
+
+/**
+ * Lay the reference outline over the candidate's displayed outline by pure
+ * rotation (no flip) and report both the best angle and the leftover gap.
+ *
+ * Works in the SAME displayed-cloud convention the renderer uses, so `deg` can be
+ * fed straight back as `{ rotate: deg, flipX: false }` to overlay the outlines,
+ * and `residual` is the worst-case gap that remains (≈0 for the correct option,
+ * large for distortions and mirror). Coarse 3° sweep, then a ±3° refine at 1°.
+ */
+function alignSweep(
+  ref: OuterShape,
+  cand: OuterShape,
+  tcand: Transform,
+): { deg: number; residual: number } {
+  const A = centeredDisplayed(cand, tcand);
+  const residualAt = (deg: number) =>
+    hausdorff(A, centeredDisplayed(ref, { rotate: deg, flipX: false }));
+
+  let best = 0;
+  let bestD = Infinity;
+  for (let deg = 0; deg < 360; deg += 3) {
+    const d = residualAt(deg);
+    if (d < bestD) {
+      bestD = d;
+      best = deg;
+    }
+  }
+  for (let deg = best - 3; deg <= best + 3; deg += 1) {
+    const d = residualAt(deg);
+    if (d < bestD) {
+      bestD = d;
+      best = deg;
+    }
+  }
+  return { deg: ((best % 360) + 360) % 360, residual: bestD };
+}
+
+/** Best display rotation to overlay the reference on the candidate (for the reveal compare view). */
+export function bestAlignmentRotation(ref: OuterShape, cand: OuterShape, tcand: Transform): number {
+  return alignSweep(ref, cand, tcand).deg;
+}
+
+/** Leftover gap after the best pure-rotation alignment — how visibly the candidate differs. */
+export function rotationResidualOf(ref: OuterShape, cand: OuterShape, tcand: Transform): number {
+  return alignSweep(ref, cand, tcand).residual;
 }
 
 /**

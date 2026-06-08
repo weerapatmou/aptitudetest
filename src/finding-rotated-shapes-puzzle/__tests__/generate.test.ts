@@ -1,13 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { generatePuzzle, generateSession } from '../generate';
-import { isPureRotationOf, polyRenderSignature } from '../generate/equivalence';
+import { isPureRotationOf, polyRenderSignature, bestAlignmentRotation } from '../generate/equivalence';
 import { isSimplePolygon } from '../generate/distractors';
-import { minMirrorDistance } from '../../rotation-puzzle/generate/symmetry';
+import { displayedCloud } from '../generate/viewBox';
+import { minMirrorDistance, hausdorff } from '../../rotation-puzzle/generate/symmetry';
+import { centroid } from '../../rotation-puzzle/generate/geometry';
 import { makeRng } from '../../rotation-puzzle/generate/rng';
-import type { Transform } from '../types';
+import type { Choice, OuterShape, Pt, Transform } from '../types';
 
 const IDENTITY: Transform = { rotate: 0, flipX: false };
 const N = 200;
+
+function center(cloud: Pt[]): Pt[] {
+  const c = centroid(cloud);
+  return cloud.map((p) => ({ x: p.x - c.x, y: p.y - c.y }));
+}
+
+/** Worst-case gap between an option's outline and the best-aligned question outline. */
+function alignResidual(ref: OuterShape, option: Choice): number {
+  const deg = bestAlignmentRotation(ref, option.shape, option.transform);
+  const A = center(displayedCloud(option.shape, option.transform, 72));
+  const G = center(displayedCloud(ref, { rotate: deg, flipX: false }, 72));
+  return hausdorff(A, G);
+}
 
 describe('puzzle structure', () => {
   it('5 choices, exactly one correct, correctIndex points at it', () => {
@@ -72,6 +87,24 @@ describe('distractor variety', () => {
       for (const c of p.choices) kinds.add(c.kind);
     }
     expect(kinds.has('mirror')).toBe(true);
+  });
+});
+
+describe('reveal comparison overlay alignment', () => {
+  it('correct option aligns to the question (tiny residual); every distractor diverges clearly', () => {
+    for (let i = 0; i < 60; i++) {
+      const p = generatePuzzle(makeRng(0xc0117 + i), `t-${i}`);
+      const correct = p.choices[p.correctIndex]!;
+      const correctResidual = alignResidual(p.reference, correct);
+      // Correct aligns within the equivalence tolerance → no red in the overlay.
+      expect(correctResidual).toBeLessThan(5);
+      for (const c of p.choices) {
+        if (c.isCorrect) continue;
+        // Generation guarantees distractors clear DISTRACTOR_MARGIN (8), past the
+        // overlay's red threshold (6), so the panel always paints red for them.
+        expect(alignResidual(p.reference, c)).toBeGreaterThanOrEqual(8);
+      }
+    }
   });
 });
 

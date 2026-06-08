@@ -3,11 +3,16 @@ import { pickOuterShape, generateOuter } from '@/rotation-puzzle/generate/outerS
 import { minMirrorDistance, outerRotationalSymmetries } from '@/rotation-puzzle/generate/symmetry';
 import { sampleAngle } from '@/rotation-puzzle/generate/angles';
 import { buildDistractor, pickDistractorKinds, type Ctx } from './distractors';
-import { isPureRotationOf, polyRenderSignature } from './equivalence';
+import { isPureRotationOf, rotationResidualOf, polyRenderSignature } from './equivalence';
 import { displayedCloud, sharedViewBox } from './viewBox';
 import type { Choice, OuterShape, Pt, Puzzle, Settings, Transform } from '../types';
 
 const IDENTITY: Transform = { rotate: 0, flipX: false };
+
+// A distractor must leave at least this much gap after best-fit rotation. Above
+// the equivalence tolerance (5) with headroom, so distractors are unmistakably
+// different and the reveal overlay always paints red where they diverge.
+const DISTRACTOR_MARGIN = 8;
 
 /** Any outline kind that carries explicit vertices (everything except the ellipse). */
 type PolygonShape = Extract<OuterShape, { vertices: Pt[] }>;
@@ -59,9 +64,12 @@ export function generatePuzzle(rng: Rng, id: string): Puzzle {
 
     const all = [correct, ...distractors];
 
-    // Fairness: the correct option must be a pure rotation; no distractor may be.
+    // Fairness: the correct option must be a pure rotation. Every distractor must
+    // diverge by a clear margin (well past a pure rotation), so it both reads as
+    // wrong and shows visibly in the reveal comparison overlay.
     if (!isPureRotationOf(reference, correct.shape, correct.transform)) continue;
-    if (distractors.some((d) => isPureRotationOf(reference, d.shape, d.transform))) continue;
+    if (distractors.some((d) => rotationResidualOf(reference, d.shape, d.transform) < DISTRACTOR_MARGIN))
+      continue;
 
     // Distinctness: all five images differ from each other AND from the reference
     // (so the correct option reads as genuinely re-oriented, not a copy).

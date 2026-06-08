@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import type { Puzzle, Settings, SheetResult } from './types';
 import { ChoiceCard } from './ChoiceCard';
 import { ShapeFigure } from './ShapeFigure';
+import { CompareFigure } from './CompareFigure';
 import { HowToPlay } from './HowToPlay';
 import { generateSession } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
@@ -449,6 +450,42 @@ function RevealPanel({ result }: { result: SheetResult }) {
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-4 border-t border-border/60 pt-4">
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div className="font-mono text-[11px] uppercase tracking-wider text-text-dim">
+            Compare with the question
+          </div>
+          <div className="flex items-center gap-3 font-mono text-[10px] text-text-dim/70">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-4 border-t border-dashed border-text-dim/70" /> question
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-4 border-t-2 border-wrong" /> differs
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <div className="w-32 md:w-36">
+            <CompareFigure
+              option={puzzle.choices[puzzle.correctIndex]!}
+              reference={puzzle.reference}
+              caption="Correct vs question"
+              tone="correct"
+            />
+          </div>
+          {selected !== null && !correct && (
+            <div className="w-32 md:w-36">
+              <CompareFigure
+                option={puzzle.choices[selected]!}
+                reference={puzzle.reference}
+                caption="Your answer vs question"
+                tone="wrong"
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

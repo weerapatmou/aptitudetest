@@ -59,7 +59,7 @@ function mutate(kind: DistractorKind, ctx: Ctx): Pt[] | null {
   const rng = ctx.rng;
   const c = centroid(verts);
   const diag = bboxDiagonal(polygonBounds(verts));
-  const delta = Math.max(diag * 0.11, 12);
+  const delta = Math.max(diag * 0.13, 15);
 
   switch (kind) {
     case 'vertex-moved': {
