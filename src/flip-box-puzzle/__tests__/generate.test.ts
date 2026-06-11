@@ -39,8 +39,8 @@ describe('flip-box generation', () => {
   it('keeps sequence length inside the per-difficulty band', () => {
     const bands: Record<Difficulty, [number, number]> = {
       easy: [3, 4],
-      normal: [4, 5],
-      hard: [5, 7],
+      normal: [4, 6],
+      hard: [5, 8],
     };
     (Object.keys(bands) as Difficulty[]).forEach((d) => {
       const [lo, hi] = bands[d];

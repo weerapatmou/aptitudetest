@@ -1,7 +1,8 @@
 import { defaultRng, makeRng, type Rng } from '../../rotation-puzzle/generate/rng';
+import { generateDistinctSession } from '@/shared/coverage';
 import type { Choice, Difficulty, DifficultyOrMixed, Polycube, Puzzle, Settings } from '../types';
 import { generateBase, fullyVisibleOrientations } from './shapes';
-import { isRotationCongruent } from './polycube';
+import { canonicalKey, isRotationCongruent } from './polycube';
 import { buildDistractors, explanationFor } from './distractors';
 import { renderSignature, sharedViewBox } from './iso';
 
@@ -41,6 +42,10 @@ export function generatePuzzle(difficulty: DifficultyOrMixed, rng: Rng, id: stri
   // distinct fully-visible orientations, so this almost always succeeds first try.
   for (let attempt = 0; attempt < 30; attempt++) {
     const base = generateBase(effective, rng);
+    // The rotation-invariant identity of the base shape (24-rotation canonical
+    // form, reflections NOT folded — a mirror is a deliberately distinct chiral
+    // pattern). Drives the session anti-repeat signature.
+    const baseKey = canonicalKey(base);
     const used = new Set<string>();
 
     // Reference: a fully-visible view of the base.
@@ -84,21 +89,31 @@ export function generatePuzzle(difficulty: DifficultyOrMixed, rng: Rng, id: stri
     const correctIndex = choices.findIndex((c) => c.isCorrect);
     const viewBox = sharedViewBox([ref.solid, ...choices.map((c) => c.solid)]);
 
-    return { id, reference: ref.solid, choices, correctIndex, difficulty: effective, viewBox };
+    return { id, reference: ref.solid, choices, correctIndex, difficulty: effective, viewBox, baseKey };
   }
 
   // Extremely defensive fallback: should not be reached in practice.
   throw new Error('failed to assemble a fair rotated-block puzzle');
 }
 
+/**
+ * The structural essence a solver memorizes: the base polycube's cell count plus
+ * its rotation-canonical key. Distinct chiral patterns (and their mirrors) get
+ * distinct signatures, so the session anti-repeat keeps shapes from recurring.
+ */
+export function signatureOf(puzzle: Puzzle): string {
+  return `${puzzle.reference.length}:${puzzle.baseKey}`;
+}
+
 /** A reproducible session of puzzles for the given settings. */
 export function generateSession(settings: Settings, seed?: number): Puzzle[] {
   const rng = seed !== undefined ? makeRng(seed) : defaultRng;
-  const puzzles: Puzzle[] = [];
-  for (let i = 0; i < settings.count; i++) {
-    puzzles.push(generatePuzzle(settings.difficulty, rng, `rb-${i}`));
-  }
-  return puzzles;
+  let i = 0;
+  return generateDistinctSession(
+    settings.count,
+    () => generatePuzzle(settings.difficulty, rng, `rb-${i++}`),
+    signatureOf,
+  );
 }
 
 export { isRotationCongruent };

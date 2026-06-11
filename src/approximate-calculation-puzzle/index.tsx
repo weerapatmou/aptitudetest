@@ -9,10 +9,11 @@ import type {
 } from './types';
 import { QuestionCard } from './QuestionCard';
 import { HowToPlay } from './HowToPlay';
-import { generateSession } from './generate';
+import { generateSession, signatureOf } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [5, 10, 20, 50] as const;
@@ -40,7 +41,19 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
   });
 
   const mode: PracticeMode = settings.mode ?? 'sequential';
-  const seedState = useSeed('approxCalc:lastSeed');
+  const history = useSignatureHistory('approxCalc:sigHistory', { max: 50 });
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          generateSession({ ...settings, count: Math.min(settings.count, 8) }, s).map((q) =>
+            signatureOf(q.problem),
+          ),
+      }).seed,
+    [history.recent, settings],
+  );
+  const seedState = useSeed('approxCalc:lastSeed', undefined, { pickSeed });
   const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -65,7 +78,9 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
   const launch = useCallback(
     (useSeed: number) => {
       seedState.commit(useSeed);
-      setQuestions(generateSession(settings, useSeed));
+      const qs = generateSession(settings, useSeed);
+      setQuestions(qs);
+      history.add(qs.map((q) => signatureOf(q.problem)));
       setResults([]);
       resetTimer();
       if (mode === 'sheet') {
@@ -79,7 +94,7 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
         setPhase('answering');
       }
     },
-    [settings, mode, resetTimer, seedState],
+    [settings, mode, resetTimer, seedState, history],
   );
 
   // A fresh set of brand-new problems (new random seed each time).

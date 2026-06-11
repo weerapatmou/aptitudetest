@@ -61,6 +61,10 @@ export type Puzzle = {
   /** Indices into `choices` that together fill the gap. */
   correctIndices: number[];
   difficulty: Difficulty;
+  /** The notch template that carved the gap (e.g. 'cornerTriangle', 'edgeRect'). */
+  notchTemplate: string;
+  /** The completed base-shape kind (e.g. 'square', 'hexagon', 'arrow'). */
+  baseKind: string;
   /** Shared origin-centered viewBox so the main shape and all pieces share one scale. */
   viewBox: string;
 };

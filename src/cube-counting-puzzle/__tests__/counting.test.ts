@@ -10,7 +10,7 @@ function fromHeights(height: number[][]): Arrangement {
   for (let x = 0; x < cols; x++)
     for (let y = 0; y < rows; y++)
       for (let z = 0; z < height[x]![y]!; z++) cells.push({ x, y, z });
-  return { cols, rows, height, cells, total: cells.length };
+  return { archetype: 'box', cols, rows, height, cells, total: cells.length };
 }
 
 function solid(n: number): Arrangement {

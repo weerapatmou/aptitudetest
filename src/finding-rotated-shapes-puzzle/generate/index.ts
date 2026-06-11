@@ -1,8 +1,9 @@
 import { makeRng, defaultRng, type Rng } from '@/rotation-puzzle/generate/rng';
+import { generateDistinctSession } from '@/shared/coverage';
 import { pickOuterShape, generateOuter } from '@/rotation-puzzle/generate/outerShapes';
 import { minMirrorDistance, outerRotationalSymmetries } from '@/rotation-puzzle/generate/symmetry';
 import { sampleAngle } from '@/rotation-puzzle/generate/angles';
-import { buildDistractor, pickDistractorKinds, type Ctx } from './distractors';
+import { buildDistractor, pickDistractorKinds, isSimplePolygon, type Ctx } from './distractors';
 import { isPureRotationOf, rotationResidualOf, polyRenderSignature } from './equivalence';
 import { displayedCloud, sharedViewBox } from './viewBox';
 import type { Choice, OuterShape, Pt, Puzzle, Settings, Transform } from '../types';
@@ -47,6 +48,10 @@ export function generatePuzzle(rng: Rng, id: string): Puzzle {
   for (let attempt = 0; attempt < 40; attempt++) {
     const reference = pickPolygonOuterShape(rng);
     if (minMirrorDistance(reference) < 8.5) continue;
+    // The reference must be a simple (non-self-intersecting) outline: distractors
+    // are validated against this, the reveal overlay assumes it, and a few outer
+    // generators (e.g. gear) can occasionally emit a self-crossing instance.
+    if (!isSimplePolygon(reference.vertices)) continue;
 
     const syms = outerRotationalSymmetries(reference);
     const { theta } = sampleAngle('medium', syms, rng);
@@ -99,7 +104,20 @@ export function generatePuzzle(rng: Rng, id: string): Puzzle {
   return generatePuzzle(makeRng((Math.random() * 1e9) | 0), id);
 }
 
+/**
+ * The structural essence a solver memorizes: the outline KIND plus its vertex
+ * count (the continuous per-instance jitter and rotation angle are excluded —
+ * they're what the eye is meant to see through). Used to keep a session free of
+ * repeated outline types and to steer fresh sessions away from recent ones.
+ */
+export function signatureOf(puzzle: Puzzle): string {
+  const ref = puzzle.reference;
+  const vcount = isPolygonShape(ref) ? ref.vertices.length : 0;
+  return `${ref.kind}:${vcount}`;
+}
+
 export function generateSession(settings: Settings, seed?: number): Puzzle[] {
   const rng = seed !== undefined ? makeRng(seed) : defaultRng;
-  return Array.from({ length: settings.count }, (_, i) => generatePuzzle(rng, `frs-${i}`));
+  let i = 0;
+  return generateDistinctSession(settings.count, () => generatePuzzle(rng, `frs-${i++}`), signatureOf);
 }

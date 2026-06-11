@@ -10,7 +10,9 @@ export type ReferenceShapeKind =
   | 'kite'
   | 'triangle'
   | 'pentagon'
-  | 'parallelogram';
+  | 'parallelogram'
+  | 'octagon'
+  | 'trapezoid';
 
 export const REFERENCE_KINDS: readonly ReferenceShapeKind[] = [
   'hexagon',
@@ -21,6 +23,8 @@ export const REFERENCE_KINDS: readonly ReferenceShapeKind[] = [
   'triangle',
   'pentagon',
   'parallelogram',
+  'octagon',
+  'trapezoid',
 ] as const;
 
 export type ReferenceShape = {
@@ -72,4 +76,8 @@ export type MatchingPuzzle = {
   options: Option[];
   correctIndex: number;
   difficulty: Difficulty;
+  /** The cut strategy used to split the reference (e.g. 'straight-chord', 'polyline'). */
+  cutStrategy: string;
+  /** Number of points in the cut path: 2 = straight, 3 = 1-bend, 4 = 2-bend. */
+  cutSegments: number;
 };

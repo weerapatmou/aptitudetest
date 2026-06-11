@@ -13,6 +13,10 @@ const OUTER_KINDS = [
   'chevron',
   'teardrop',
   'gear',
+  'pinwheel',
+  'combBar',
+  'unevenStar',
+  'pennant',
 ] as const;
 
 export type OuterKind = (typeof OUTER_KINDS)[number];
@@ -47,6 +51,10 @@ export function generateOuter(kind: OuterKind, rng: Rng): OuterShape {
     case 'chevron':            return generateChevron(rng);
     case 'teardrop':           return generateTeardrop(rng);
     case 'gear':               return generateGear(rng);
+    case 'pinwheel':           return generatePinwheel(rng);
+    case 'combBar':            return generateCombBar(rng);
+    case 'unevenStar':         return generateUnevenStar(rng);
+    case 'pennant':            return generatePennant(rng);
   }
 }
 
@@ -280,6 +288,115 @@ function generateGear(rng: Rng): OuterShape {
   const c = Math.cos(ang), s = Math.sin(ang);
   const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
   return { kind: 'gear', vertices };
+}
+
+function generatePinwheel(rng: Rng): OuterShape {
+  // A set of blades swept consistently one way around the hub. The single-
+  // handed sweep (every blade leans the same direction) is what makes a pinwheel
+  // chiral: its mirror image spins the other way, so no clean reflection axis.
+  const blades = rng.pick([4, 5, 6]);
+  const hub = 40 + rng.range(-3, 3);
+  const tip = 72 + rng.range(-4, 4);
+  const per = (Math.PI * 2) / blades;
+  // Sweep: how far the blade tip leads its valley, as a fraction of a slot.
+  // Every blade leans the SAME way (single handedness) — that is what makes a
+  // pinwheel chiral: its mirror image spins the other direction. We keep the
+  // tip angularly inside its own slot so the outline never self-intersects.
+  const dir = rng.bool() ? 1 : -1;
+  const sweep = dir * (0.30 + rng.range(0, 0.12)); // |sweep| in [0.30, 0.42)
+  const pts: Pt[] = [];
+  for (let i = 0; i < blades; i++) {
+    const root = i * per;
+    // Inner valley between blades.
+    pts.push({ x: hub * Math.cos(root), y: hub * Math.sin(root) });
+    // Blade tip, leading by the sweep so all blades lean the same way.
+    const tipAng = root + per * (0.5 + sweep);
+    pts.push({ x: tip * Math.cos(tipAng), y: tip * Math.sin(tipAng) });
+  }
+  // Lengthen one blade so any residual rotational symmetry is also broken.
+  const big = rng.int(0, blades) * 2 + 1; // a tip index
+  pts[big] = { x: pts[big]!.x * 1.1, y: pts[big]!.y * 1.1 };
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'pinwheel', vertices };
+}
+
+function generateCombBar(rng: Rng): OuterShape {
+  // A horizontal bar whose top edge is a sawtooth of uneven teeth while the
+  // bottom edge stays flat. Unequal tooth heights + a flat opposite edge leave
+  // no mirror axis, and a random rotation varies the orientation.
+  const halfW = 78 + rng.range(-4, 4);
+  const baseY = 30 + rng.range(-3, 3);  // flat bottom edge
+  const topY = -10 + rng.range(-3, 3);  // valley line of the teeth
+  const teeth = rng.pick([4, 5, 6]);
+  const pts: Pt[] = [];
+  // Bottom-left then bottom-right (flat base).
+  pts.push({ x: -halfW, y: baseY });
+  pts.push({ x: halfW, y: baseY });
+  // Walk the toothed top edge right -> left.
+  const span = halfW * 2;
+  for (let i = 0; i < teeth; i++) {
+    const x0 = halfW - (span * i) / teeth;
+    const x1 = halfW - (span * (i + 1)) / teeth;
+    const xm = (x0 + x1) / 2;
+    // Uneven tooth height per tooth — strongly varied so the profile is irregular.
+    const toothH = 22 + rng.range(0, 34);
+    pts.push({ x: x0, y: topY });          // valley at right of tooth
+    pts.push({ x: xm, y: topY - toothH });  // peak
+    pts.push({ x: x1, y: topY });          // valley at left of tooth
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'combBar', vertices };
+}
+
+function generateUnevenStar(rng: Rng): OuterShape {
+  // A 5-point star whose points have unequal lengths and whose spokes are
+  // angularly jittered, so it has neither a mirror axis nor 72° symmetry.
+  const points = 5;
+  const inner = 30 + rng.range(-3, 3);
+  const per = (Math.PI * 2) / points;
+  const pts: Pt[] = [];
+  for (let i = 0; i < points; i++) {
+    // Per-point outer radius varies a lot -> unequal arm lengths.
+    const outer = 60 + rng.range(0, 30);
+    const tipAng = i * per + rng.range(-0.14, 0.14);
+    pts.push({ x: outer * Math.cos(tipAng), y: outer * Math.sin(tipAng) });
+    // Valley between this point and the next, also jittered.
+    const valAng = i * per + per / 2 + rng.range(-0.12, 0.12);
+    const valR = inner * rng.range(0.85, 1.15);
+    pts.push({ x: valR * Math.cos(valAng), y: valR * Math.sin(valAng) });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'unevenStar', vertices };
+}
+
+function generatePennant(rng: Rng): OuterShape {
+  // An asymmetric banner: a tall hoist edge tapering to a single fly point, with
+  // a swallow-tail notch cut into the fly. The notch sits off-center and the top
+  // and bottom edges have different slopes, so the flag is chiral.
+  const hoistX = -70 + rng.range(-4, 4);  // left mast edge
+  const flyX = 76 + rng.range(-4, 4);     // right fly point
+  const topY = -44 + rng.range(-4, 4);
+  const botY = 40 + rng.range(-4, 4);
+  // Off-center swallow-tail notch on the fly side.
+  const notchX = flyX - (34 + rng.range(0, 10));
+  const notchY = (topY + botY) / 2 + rng.range(-12, 12);  // asymmetric vertical position
+  const pts: Pt[] = [
+    { x: hoistX, y: topY },                 // top of mast
+    { x: flyX, y: topY + rng.range(8, 22) },// upper fly point (slanted)
+    { x: notchX, y: notchY },               // swallow-tail notch (cut inward)
+    { x: flyX - rng.range(2, 10), y: botY - rng.range(2, 16) }, // lower fly point
+    { x: hoistX + rng.range(0, 10), y: botY },// bottom of mast (slanted base)
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'pennant', vertices };
 }
 
 function fallbackShape(): OuterShape {

@@ -27,9 +27,9 @@ type SizeSpec = { cells: number; maxDim: number };
 function sizeSpec(difficulty: Difficulty, rng: Rng): SizeSpec {
   switch (difficulty) {
     case 'easy':
-      return { cells: 4, maxDim: 3 };
-    case 'normal':
       return { cells: 5, maxDim: 3 };
+    case 'normal':
+      return { cells: 6, maxDim: 3 };
     case 'hard':
       return { cells: rng.pick([6, 7]), maxDim: rng.pick([3, 4]) };
   }

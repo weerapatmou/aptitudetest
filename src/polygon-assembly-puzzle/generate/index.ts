@@ -81,7 +81,17 @@ export function generateAssemblyPuzzle(
     difficulty,
     mode,
     pieceCount: N,
+    targetKind: target.kind,
   };
+}
+
+/**
+ * Compact, repeat-detection signature for a puzzle. Two puzzles with the same
+ * target silhouette + piece count + mode look "the same" to the practiser, so
+ * the anti-repeat picker treats them as equivalent.
+ */
+export function signatureOf(puzzle: AssemblyPuzzle): string {
+  return `${puzzle.targetKind}:${puzzle.pieceCount}:${puzzle.mode}`;
 }
 
 export type { Defect };

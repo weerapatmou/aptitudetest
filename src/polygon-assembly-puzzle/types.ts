@@ -39,6 +39,7 @@ export type AssemblyPuzzle = {
   difficulty: Difficulty;
   mode: Mode;
   pieceCount: number;
+  targetKind: string;
 };
 
 export const DEFECT_LABELS: Record<Defect, string> = {

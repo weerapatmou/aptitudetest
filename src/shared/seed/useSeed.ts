@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 
 /** A fresh random seed: a positive ~30-bit integer, nice to display and feed to makeRng. */
@@ -34,9 +34,21 @@ export type UseSeed = {
   applyDraft: () => number | null;
 };
 
-export function useSeed(storageKey: string, initial?: number): UseSeed {
+/**
+ * Optional behaviour for useSeed. `pickSeed` overrides how a fresh seed is
+ * chosen on `fresh()` (e.g. the anti-repeat picker that avoids recently-seen
+ * patterns). It's read through a ref so the host can pass a new closure each
+ * render (capturing current settings/history) without changing `fresh`'s
+ * identity. Defaults to a plain random seed.
+ */
+export type UseSeedOptions = { pickSeed?: () => number };
+
+export function useSeed(storageKey: string, initial?: number, opts?: UseSeedOptions): UseSeed {
   const [seed, setSeed] = useLocalStorage<number>(storageKey, initial ?? randomSeed());
   const [draft, setDraft] = useState<string>(() => String(seed));
+
+  const pickSeedRef = useRef<(() => number) | undefined>(opts?.pickSeed);
+  pickSeedRef.current = opts?.pickSeed;
 
   const commit = useCallback(
     (n: number) => {
@@ -47,7 +59,7 @@ export function useSeed(storageKey: string, initial?: number): UseSeed {
   );
 
   const fresh = useCallback(() => {
-    const n = randomSeed();
+    const n = (pickSeedRef.current ?? randomSeed)();
     commit(n);
     return n;
   }, [commit]);
@@ -87,8 +99,12 @@ export type UseSeedSequence = UseSeed & {
  * advances deterministically and "Replay" restarts the same sequence. Picking a
  * fresh seed, applying a typed seed, or committing all reset the index to 0.
  */
-export function useSeedSequence(storageKey: string, initial?: number): UseSeedSequence {
-  const base = useSeed(storageKey, initial);
+export function useSeedSequence(
+  storageKey: string,
+  initial?: number,
+  opts?: UseSeedOptions,
+): UseSeedSequence {
+  const base = useSeed(storageKey, initial, opts);
   const [index, setIndex] = useState(0);
 
   const advance = useCallback(() => {

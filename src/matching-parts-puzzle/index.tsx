@@ -7,10 +7,11 @@ import { OptionFigure } from './OptionFigure';
 import { ComparisonView } from './ComparisonView';
 import { HowToPlay } from './HowToPlay';
 import { DifficultyChips } from '../rotation-puzzle/DifficultyChips';
-import { generateMatchingPuzzle } from './generate';
+import { generateMatchingPuzzle, signatureOf } from './generate';
 import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -34,18 +35,32 @@ export function MatchingPartsPuzzle({ difficulty: difficultyProp, onHome }: Prop
   const [pick, setPick] = useState<number | null>(null);
   const [focused, setFocused] = useState(0);
   const reduced = useReducedMotion();
-  const seedSeq = useSeedSequence('matching:sessionSeed');
+  const history = useSignatureHistory('matching:sigHistory', { max: 60 });
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          Array.from({ length: 5 }, (_, i) =>
+            signatureOf(generateMatchingPuzzle(difficulty, { seed: s + i })),
+          ),
+      }).seed,
+    [history.recent, difficulty],
+  );
+  const seedSeq = useSeedSequence('matching:sessionSeed', undefined, { pickSeed });
 
   const { elapsed } = useTimer(true);
 
   const regenerate = useCallback(
     (useSeed: number) => {
-      setPuzzle(generateMatchingPuzzle(difficulty, { seed: useSeed }));
+      const puzzle = generateMatchingPuzzle(difficulty, { seed: useSeed });
+      setPuzzle(puzzle);
+      history.add([signatureOf(puzzle)]);
       setPhase('answering');
       setPick(null);
       setFocused(0);
     },
-    [difficulty],
+    [difficulty, history],
   );
 
   useEffect(() => {

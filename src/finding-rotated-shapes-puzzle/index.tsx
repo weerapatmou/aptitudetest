@@ -6,10 +6,11 @@ import { ChoiceCard } from './ChoiceCard';
 import { ShapeFigure } from './ShapeFigure';
 import { CompareFigure } from './CompareFigure';
 import { HowToPlay } from './HowToPlay';
-import { generateSession } from './generate';
+import { generateSession, signatureOf } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [10, 15, 20, 30] as const;
@@ -24,7 +25,17 @@ export function FindingRotatedShapesPuzzle({ onHome }: Props = {}) {
   const [settings, setSettings] = useLocalStorage<Settings>('findingRotatedShapes:settings', {
     count: 10,
   });
-  const seedState = useSeed('findingRotatedShapes:lastSeed');
+  const history = useSignatureHistory('findingRotatedShapes:sigHistory', { max: 40 });
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          generateSession({ ...settings, count: Math.min(settings.count, 8) }, s).map(signatureOf),
+      }).seed,
+    [history.recent, settings],
+  );
+  const seedState = useSeed('findingRotatedShapes:lastSeed', undefined, { pickSeed });
   const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -39,13 +50,15 @@ export function FindingRotatedShapesPuzzle({ onHome }: Props = {}) {
   const launch = useCallback(
     (useSeed: number) => {
       seedState.commit(useSeed);
-      setPuzzles(generateSession(settings, useSeed));
+      const pz = generateSession(settings, useSeed);
+      setPuzzles(pz);
+      history.add(pz.map(signatureOf));
       setAnswers({});
       setSubmitted(false);
       resetTimer();
       setPhase('sheet');
     },
-    [settings, resetTimer, seedState],
+    [settings, resetTimer, seedState, history],
   );
 
   // A fresh set of brand-new shape patterns (new random seed each time).

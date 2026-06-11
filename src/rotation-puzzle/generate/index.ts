@@ -83,3 +83,18 @@ function allDistractorsDistinctFromCorrect(
 }
 
 export { formatAngle } from './angles';
+
+/**
+ * A stable signature capturing the memorable structure of a puzzle — the outer
+ * shape kind plus the (order-independent) multiset of internal elements by
+ * kind/fill/style. Deliberately EXCLUDES the rotation angle and any continuous
+ * position/size jitter, so two puzzles that "look the same to practice" collapse
+ * to the same signature. Used only for anti-repeat seed selection.
+ */
+export function signatureOf(puzzle: Puzzle): string {
+  const { outer, internals } = puzzle.original;
+  const tuples = internals
+    .map((el) => `${el.kind}|${el.filled}|${el.fillStyle ?? 'none'}`)
+    .sort();
+  return `${outer.kind}:${internals.length}:${tuples.join(',')}`;
+}

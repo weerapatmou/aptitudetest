@@ -8,6 +8,26 @@ export type Cell = { x: number; y: number; z: number };
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type DifficultyOrMixed = Difficulty | 'mixed';
 
+/** The structural family an arrangement was built from (used for anti-repeat signatures). */
+export type Archetype =
+  | 'box'
+  | 'staircase'
+  | 'pyramid'
+  | 'tower-on-box'
+  | 'l-prism'
+  | 'frame'
+  | 'well'
+  | 'plus'
+  | 'u-shape'
+  | 'two-towers'
+  | 't-prism'
+  | 'step-pyramid'
+  | 'stepped-l'
+  | 'tunnel'
+  | 'zigzag-ridge'
+  | 'double-well'
+  | 'pinwheel';
+
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easy: 'Easy',
   normal: 'Normal',
@@ -21,6 +41,8 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
  * you can see.
  */
 export type Arrangement = {
+  /** The structural family this stack was built from. */
+  archetype: Archetype;
   cols: number; // footprint width (x)
   rows: number; // footprint depth (y)
   /** height[x][y] ≥ 0 — number of cubes stacked in that column. */

@@ -7,11 +7,12 @@ import { DifficultyBadge } from './DifficultyBadge';
 import { CubeFigure } from './CubeFigure';
 import { ChoiceCard } from './ChoiceCard';
 import { HowToPlay } from './HowToPlay';
-import { generateSession } from './generate';
+import { generateSession, signatureOf } from './generate';
 import { visibleCubes, hiddenCubes } from './generate/counting';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['a', 'b', 'c', 'd'] as const;
 const COUNT_PRESETS = [10, 20, 30, 40] as const;
@@ -27,7 +28,17 @@ export function CubeCountingPuzzle({ onHome }: Props = {}) {
     count: 20,
     difficulty: 'mixed',
   });
-  const seedState = useSeed('cubeCounting:lastSeed');
+  const history = useSignatureHistory('cubeCounting:sigHistory', { max: 120 });
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          generateSession({ ...settings, count: Math.min(settings.count, 8) }, s).map(signatureOf),
+      }).seed,
+    [history.recent, settings],
+  );
+  const seedState = useSeed('cubeCounting:lastSeed', undefined, { pickSeed });
   const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -42,13 +53,15 @@ export function CubeCountingPuzzle({ onHome }: Props = {}) {
   const launch = useCallback(
     (useSeed: number) => {
       seedState.commit(useSeed);
-      setPuzzles(generateSession(settings, useSeed));
+      const pz = generateSession(settings, useSeed);
+      setPuzzles(pz);
+      history.add(pz.map(signatureOf));
       setAnswers({});
       setSubmitted(false);
       resetTimer();
       setPhase('sheet');
     },
-    [settings, resetTimer, seedState],
+    [settings, resetTimer, seedState, history],
   );
 
   // A fresh set of brand-new stacks (new random seed each time).

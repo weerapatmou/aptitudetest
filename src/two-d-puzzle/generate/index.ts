@@ -3,6 +3,7 @@ import { buildBase, partition } from './notch';
 import { buildDistractors } from './distractors';
 import { frameHalfExtent, layoutPiece, viewBoxFromHalf } from './layout';
 import { defaultRng, makeRng, type Rng } from '../../rotation-puzzle/generate/rng';
+import { generateDistinctSession } from '@/shared/coverage';
 
 const ALL_DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
 
@@ -65,6 +66,8 @@ export function generatePuzzle(
       choices,
       correctIndices,
       difficulty: effective,
+      notchTemplate: base.notchTemplate,
+      baseKind: base.baseKind,
       viewBox,
     };
   }
@@ -73,11 +76,24 @@ export function generatePuzzle(
   return generatePuzzle(difficulty, shapeScope, makeRng((Math.random() * 1e9) | 0), id);
 }
 
+/**
+ * The structural essence a solver memorizes: the base-shape kind, the notch
+ * template, and how many pieces the gap splits into. The continuous per-instance
+ * params (exact cut fractions, depths, rotations) are excluded — those are the
+ * variety the eye works through. Used to keep a session free of repeated
+ * structures and to steer fresh sessions away from recent ones.
+ */
+export function signatureOf(puzzle: Puzzle): string {
+  const k = puzzle.correctIndices.length;
+  return `${puzzle.baseKind}:${puzzle.notchTemplate}:${k}`;
+}
+
 export function generateSession(settings: Settings, seed?: number): Puzzle[] {
   const rng = seed !== undefined ? makeRng(seed) : defaultRng;
-  const out: Puzzle[] = [];
-  for (let i = 0; i < settings.count; i++) {
-    out.push(generatePuzzle(settings.difficulty, settings.shapeScope, rng, `2d-${i}`));
-  }
-  return out;
+  let i = 0;
+  return generateDistinctSession(
+    settings.count,
+    () => generatePuzzle(settings.difficulty, settings.shapeScope, rng, `2d-${i++}`),
+    signatureOf,
+  );
 }

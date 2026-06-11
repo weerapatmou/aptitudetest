@@ -18,6 +18,10 @@ export type Base = {
   main: Polygon;
   /** The missing region the pieces must fill (the smaller piece). */
   missing: Polygon;
+  /** The notch template that produced this gap (e.g. 'cornerTriangle'). */
+  notchTemplate: string;
+  /** The completed base-shape kind (e.g. 'square', 'hexagon'). */
+  baseKind: string;
 };
 
 // ---- boundary helpers (work on any convex base polygon) ----
@@ -83,7 +87,8 @@ function cutOff(completed: Polygon, b1: BP, b2: BP, bends: Pt[]): Base | null {
   const mw = mb.maxX - mb.minX;
   const mh = mb.maxY - mb.minY;
   if (Math.min(mw, mh) / Math.max(mw, mh) < 0.34) return null;
-  return { completed, main, missing };
+  // notchTemplate/baseKind are stamped by buildBase, which knows both.
+  return { completed, main, missing, notchTemplate: '', baseKind: '' };
 }
 
 // ---- notch templates ----
@@ -269,6 +274,92 @@ function cornerStep(c: Polygon, rng: Rng): Base | null {
   return cutOff(c, b1, b2, [inner, m2, knee, m1]);
 }
 
+/**
+ * Dovetail notch cut into an edge — a trapezoid that FLARES wider as it goes in
+ * (the opposite taper to edgeTrapezoid), giving the classic interlocking-joint
+ * silhouette. The flare is bounded so the inner corners can't cross.
+ */
+function dovetail(c: Polygon, rng: Rng): Base | null {
+  const e = rng.int(0, c.length);
+  const len = edgeLen(c, e);
+  const minDim = Math.min(
+    polygonBounds(c).maxX - polygonBounds(c).minX,
+    polygonBounds(c).maxY - polygonBounds(c).minY,
+  );
+  const t1 = 0.18 + rng.next() * 0.16;
+  const t2 = t1 + (0.3 + rng.next() * 0.2);
+  if (t2 > 0.84) return null;
+  const nrm = inwardNormal(c, e);
+  const dir = edgeDir(c, e);
+  const depth = (0.34 + rng.next() * 0.22) * minDim;
+  // Flare each inner corner OUTWARD along the edge direction (negative inset on
+  // b1's side, positive on b2's), kept under a quarter of the mouth so the
+  // dovetail stays a clean single piece.
+  const flare = (t2 - t1) * len * (0.16 + rng.next() * 0.1);
+  const b1 = bp(c, e, t1);
+  const b2 = bp(c, e, t2);
+  const i1 = add(add(b1.pt, nrm, depth), dir, -flare);
+  const i2 = add(add(b2.pt, nrm, depth), dir, flare);
+  return cutOff(c, b1, b2, [i1, i2]);
+}
+
+/**
+ * Off-center cross/T notch cut into an edge — a rectangular mouth that widens
+ * into a broader head partway in, like a keyhole slot. The head is offset along
+ * the edge so it reads asymmetrically (an off-center cross).
+ */
+function offsetCross(c: Polygon, rng: Rng): Base | null {
+  const e = rng.int(0, c.length);
+  const len = edgeLen(c, e);
+  const minDim = Math.min(
+    polygonBounds(c).maxX - polygonBounds(c).minX,
+    polygonBounds(c).maxY - polygonBounds(c).minY,
+  );
+  const t1 = 0.24 + rng.next() * 0.14;
+  const t2 = t1 + (0.18 + rng.next() * 0.12); // narrow mouth (stem)
+  if (t2 > 0.78) return null;
+  const nrm = inwardNormal(c, e);
+  const dir = edgeDir(c, e);
+  const stemDepth = (0.22 + rng.next() * 0.12) * minDim;
+  const headDepth = stemDepth + (0.18 + rng.next() * 0.14) * minDim;
+  const mouth = (t2 - t1) * len;
+  // Head overhangs the stem on both sides; the overhang is offset so one wing is
+  // larger (off-center). Overhangs stay within the edge span via the t bounds.
+  const left = mouth * (0.4 + rng.next() * 0.3);
+  const right = mouth * (0.4 + rng.next() * 0.3);
+  const b1 = bp(c, e, t1);
+  const b2 = bp(c, e, t2);
+  const s1 = add(b1.pt, nrm, stemDepth);
+  const s2 = add(b2.pt, nrm, stemDepth);
+  const h1 = add(s1, dir, -left);
+  const h1d = add(h1, nrm, headDepth - stemDepth);
+  const h2d = add(add(s2, dir, right), nrm, headDepth - stemDepth);
+  const h2 = add(s2, dir, right);
+  // Path: down the stem on b1 side, out to the left wing, across the head,
+  // back to the right wing, up the stem on b2 side.
+  return cutOff(c, b1, b2, [s1, h1, h1d, h2d, h2, s2]);
+}
+
+/**
+ * Double-corner bite — a wide, shallow rectangular slab taken off a whole edge
+ * end-to-end (biting into BOTH corners that bound the edge). Reads as a flat
+ * shelf removed across the top.
+ */
+function cornerDoubleBite(c: Polygon, rng: Rng): Base | null {
+  const e = rng.int(0, c.length);
+  const minDim = Math.min(
+    polygonBounds(c).maxX - polygonBounds(c).minX,
+    polygonBounds(c).maxY - polygonBounds(c).minY,
+  );
+  const t1 = 0.06 + rng.next() * 0.1;
+  const t2 = 1 - (0.06 + rng.next() * 0.1); // spans nearly the whole edge
+  const nrm = inwardNormal(c, e);
+  const depth = (0.22 + rng.next() * 0.16) * minDim; // shallow shelf
+  const b1 = bp(c, e, t1);
+  const b2 = bp(c, e, t2);
+  return cutOff(c, b1, b2, [add(b1.pt, nrm, depth), add(b2.pt, nrm, depth)]);
+}
+
 /** Organic free cut (random chord or single bend) — keeps some variety smooth. */
 function organicCut(c: Polygon, rng: Rng): Base | null {
   const cut = cutPolygon(c, rng.bool(0.5) ? 'straight-chord' : 'polyline', rng);
@@ -284,51 +375,58 @@ function organicCut(c: Polygon, rng: Rng): Base | null {
   const mw = mb.maxX - mb.minX;
   const mh = mb.maxY - mb.minY;
   if (Math.min(mw, mh) / Math.max(mw, mh) < 0.4) return null;
-  return { completed: c, main, missing };
+  return { completed: c, main, missing, notchTemplate: '', baseKind: '' };
 }
 
 type Template = (c: Polygon, rng: Rng) => Base | null;
 
-/** Notch templates with relative weights (higher = drawn more often). */
-const TEMPLATES: Array<{ fn: Template; weight: number }> = [
-  { fn: cornerTriangle, weight: 3 },
-  { fn: cornerRect, weight: 3 },
-  { fn: edgeRect, weight: 3 },
-  { fn: edgeTriangle, weight: 2 },
-  { fn: edgeTrapezoid, weight: 2 },
-  { fn: edgeStep, weight: 2 },
-  { fn: edgeSlit, weight: 2 },
-  { fn: doubleNotch, weight: 2 },
-  { fn: cornerStep, weight: 2 },
-  { fn: organicCut, weight: 2 },
+/** Notch templates with names + relative weights (higher = drawn more often). */
+const TEMPLATES: Array<{ name: string; fn: Template; weight: number }> = [
+  { name: 'cornerTriangle', fn: cornerTriangle, weight: 3 },
+  { name: 'cornerRect', fn: cornerRect, weight: 3 },
+  { name: 'edgeRect', fn: edgeRect, weight: 3 },
+  { name: 'edgeTriangle', fn: edgeTriangle, weight: 2 },
+  { name: 'edgeTrapezoid', fn: edgeTrapezoid, weight: 2 },
+  { name: 'edgeStep', fn: edgeStep, weight: 2 },
+  { name: 'edgeSlit', fn: edgeSlit, weight: 2 },
+  { name: 'doubleNotch', fn: doubleNotch, weight: 2 },
+  { name: 'cornerStep', fn: cornerStep, weight: 2 },
+  { name: 'dovetail', fn: dovetail, weight: 2 },
+  { name: 'offsetCross', fn: offsetCross, weight: 2 },
+  { name: 'cornerDoubleBite', fn: cornerDoubleBite, weight: 2 },
+  { name: 'organicCut', fn: organicCut, weight: 2 },
 ];
 
 const TEMPLATE_TOTAL_WEIGHT = TEMPLATES.reduce((s, t) => s + t.weight, 0);
 
-function pickTemplate(rng: Rng): Template {
+function pickTemplate(rng: Rng): { name: string; fn: Template } {
   let r = rng.next() * TEMPLATE_TOTAL_WEIGHT;
   for (const t of TEMPLATES) {
     r -= t.weight;
-    if (r <= 0) return t.fn;
+    if (r <= 0) return t;
   }
-  return TEMPLATES[TEMPLATES.length - 1]!.fn;
+  return TEMPLATES[TEMPLATES.length - 1]!;
 }
 
 /**
  * Build the completed shape, then carve a varied, clearly-readable notch out of
  * it. The smaller piece becomes the gap to fill; the larger is the main shape.
+ * The returned Base records which base-shape kind and notch template produced
+ * it (for signature-based anti-repeat).
  */
 export function buildBase(scope: ShapeScope, rng: Rng): Base | null {
-  const completed = pickBase(scope, rng);
+  const picked = pickBase(scope, rng);
+  const completed = picked.polygon;
 
   for (let attempt = 0; attempt < 40; attempt++) {
-    const base = pickTemplate(rng)(completed, rng);
-    if (base) return base;
+    const tpl = pickTemplate(rng);
+    const base = tpl.fn(completed, rng);
+    if (base) return { ...base, notchTemplate: tpl.name, baseKind: picked.kind };
   }
   // Last resort: an organic cut with relaxed retries.
   for (let attempt = 0; attempt < 20; attempt++) {
     const base = organicCut(completed, rng);
-    if (base) return base;
+    if (base) return { ...base, notchTemplate: 'organicCut', baseKind: picked.kind };
   }
   return null;
 }

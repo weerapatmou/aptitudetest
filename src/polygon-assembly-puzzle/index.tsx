@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import clsx from 'clsx';
 import type { AssemblyPuzzle, Difficulty, Mode } from './types';
-import { generateAssemblyPuzzle } from './generate';
+import { generateAssemblyPuzzle, signatureOf } from './generate';
 import { PromptCard } from './PromptCard';
 import { OptionCard } from './OptionCard';
 import { HowToPlay } from './HowToPlay';
@@ -11,6 +11,7 @@ import { DifficultyChips } from '../rotation-puzzle/DifficultyChips';
 import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -38,15 +39,33 @@ export function PolygonAssemblyPuzzle({ difficulty: difficultyProp, onHome }: Pr
 
   const { elapsed } = useTimer(true);
 
-  const seedSeq = useSeedSequence('assembly:sessionSeed');
+  const history = useSignatureHistory('assembly:sigHistory', { max: 60 });
+
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          Array.from({ length: 5 }, (_, i) =>
+            signatureOf(generateAssemblyPuzzle(difficulty, mode, s + i)),
+          ),
+      }).seed,
+    [history.recent, difficulty, mode],
+  );
+
+  const seedSeq = useSeedSequence('assembly:sessionSeed', undefined, { pickSeed });
 
   const regenerate = useCallback(
     (useSeed: number) => {
-      setPuzzle(generateAssemblyPuzzle(difficulty, mode, useSeed));
+      const next = generateAssemblyPuzzle(difficulty, mode, useSeed);
+      setPuzzle(next);
+      history.add([signatureOf(next)]);
       setPhase('answering');
       setPick(null);
       setFocused(0);
     },
+    // history.add is stable; omit to avoid re-running the difficulty/mode effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [difficulty, mode],
   );
 

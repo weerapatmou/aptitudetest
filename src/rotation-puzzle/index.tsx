@@ -6,11 +6,12 @@ import { Figure, FigurePatternsDefs } from './Figure';
 import { Reveal } from './Reveal';
 import { DifficultyChips } from './DifficultyChips';
 import { HowToPlay } from './HowToPlay';
-import { generatePuzzle } from './generate';
+import { generatePuzzle, signatureOf } from './generate';
 import { isPureRotationOf } from './validation';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { formatDuration, useTimer } from './hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -38,16 +39,36 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
 
   const { elapsed } = useTimer(true);
 
-  const seedSeq = useSeedSequence('rotation:sessionSeed');
+  const history = useSignatureHistory('rotation:sigHistory', { max: 150 });
+
+  // Anti-repeat: only "New" reads history (via pickSeed) to bias away from
+  // recently-seen structures. Generation from a committed seed stays
+  // deterministic, so replay/typed seeds always rebuild the same puzzle.
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          Array.from({ length: 5 }, (_, i) =>
+            signatureOf(generatePuzzle(difficulty, { seed: s + i })),
+          ),
+      }).seed,
+    [history.recent, difficulty],
+  );
+
+  const seedSeq = useSeedSequence('rotation:sessionSeed', undefined, { pickSeed });
 
   const regenerate = useCallback(
     (useSeed: number) => {
-      setPuzzle(generatePuzzle(difficulty, { seed: useSeed }));
+      const next = generatePuzzle(difficulty, { seed: useSeed });
+      setPuzzle(next);
+      // New/Next/Replay all record what was shown; only New READS history.
+      history.add([signatureOf(next)]);
       setPhase('answering');
       setPick(null);
       setFocused(0);
     },
-    [difficulty],
+    [difficulty, history],
   );
 
   // Generate first puzzle once on mount and whenever difficulty changes

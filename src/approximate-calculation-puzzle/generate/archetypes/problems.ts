@@ -535,6 +535,186 @@ export const tipOrTax: ProblemGenerator = (rng) => {
   };
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// New archetypes: conversion / scaling / split / compound
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const currencyConversion: ProblemGenerator = (rng) => {
+  // amount × exchange rate. Round amount near a clean value; rate is a clean
+  // integer-ish multiplier so the estimate is amount-round × rate-round.
+  const roundAmount = rng.pick([200, 300, 400, 500, 800, 1000] as const);
+  const amount = messyNear(rng, roundAmount, { decimals: 0 });
+  const roundRate = rng.pick([25, 30, 35, 40] as const); // e.g. THB per unit
+  const rate = messyNear(rng, roundRate, { decimals: 2 });
+  const estimate = roundAmount * roundRate;
+  const from = rng.pick(['dollars', 'euros', 'pounds'] as const);
+  const who = name(rng);
+  const prompt = rng.pick([
+    `${who} exchanges ${fmt(amount)} ${from} at a rate of ${rate.toFixed(2)} baht per ${from.slice(0, -1)}. About how many baht is that?`,
+    `At ${rate.toFixed(2)} baht to the ${from.slice(0, -1)}, ${who} converts ${fmt(amount)} ${from}. Roughly how many baht?`,
+  ]);
+  return {
+    kind: 'currency-conversion',
+    prompt,
+    unit: 'baht',
+    exactValue: amount * rate,
+    estimateValue: estimate,
+    mentalLogic: `≈ ${fmt(roundAmount)} × ${roundRate} = ${fmt(estimate)} baht.`,
+    formula: 'baht = amount × exchange rate',
+    precision: 0,
+  };
+};
+
+export const mapDistance: ProblemGenerator = (rng) => {
+  // map centimeters × scale (real km per map cm). Messy cm rounds to a clean
+  // number; the scale is an exact integer so the estimate is clean.
+  const roundCm = rng.pick([8, 10, 12, 15, 20, 25] as const);
+  const cm = messyNear(rng, roundCm, { decimals: 1 });
+  const scale = rng.pick([4, 5, 8, 10] as const); // km represented by 1 cm
+  const estimate = roundCm * scale;
+  const prompt = rng.pick([
+    `On a map, 1 centimeter represents ${scale} kilometers. Two towns are ${cm.toFixed(1)} centimeters apart on the map. About how far apart are they in reality?`,
+    `A map's scale is ${scale} kilometers per centimeter. If a route measures ${cm.toFixed(1)} centimeters on the map, roughly how long is it?`,
+  ]);
+  return {
+    kind: 'map-distance',
+    prompt,
+    unit: 'km',
+    exactValue: cm * scale,
+    estimateValue: estimate,
+    mentalLogic: `≈ ${roundCm} × ${scale} = ${fmt(estimate)} km.`,
+    formula: 'distance = map length × scale',
+    precision: 0,
+  };
+};
+
+export const densityMass: ProblemGenerator = (rng) => {
+  // mass = volume × density. Volume near a clean value (litres), density a clean
+  // value (kg per litre); estimate is the product of the round factors.
+  const roundVol = rng.pick([20, 25, 30, 40, 50] as const);
+  const vol = messyNear(rng, roundVol, { decimals: 1 });
+  const roundDensity = rng.pick([8, 9, 11, 13] as const); // kg per litre (×0.1 family below)
+  const density = messyNear(rng, roundDensity, { decimals: 2 });
+  const estimate = roundVol * roundDensity;
+  const fluid = rng.pick(['oil', 'syrup', 'paint', 'resin'] as const);
+  const prompt = rng.pick([
+    `A drum holds ${vol.toFixed(1)} liters of ${fluid}, which has a density of about ${density.toFixed(2)} kilograms per liter. Estimate the mass of the ${fluid}.`,
+    `${vol.toFixed(1)} liters of ${fluid} (density ≈ ${density.toFixed(2)} kg/L) fills a container. About how many kilograms is that?`,
+  ]);
+  return {
+    kind: 'density-mass',
+    prompt,
+    unit: 'kg',
+    exactValue: vol * density,
+    estimateValue: estimate,
+    mentalLogic: `≈ ${roundVol} × ${roundDensity} = ${fmt(estimate)} kg.`,
+    formula: 'mass = volume × density',
+    precision: 0,
+  };
+};
+
+export const recipeScaling: ProblemGenerator = (rng) => {
+  // per-serving amount × number of servings. Per-serving messy near a clean
+  // value (grams); servings is an exact integer batch.
+  const roundPer = rng.pick([80, 100, 120, 150, 200, 250] as const);
+  const per = messyNear(rng, roundPer, { decimals: 0 });
+  const servings = rng.pick([12, 15, 20, 24, 30] as const);
+  const estimate = roundPer * servings;
+  const ingredient = rng.pick(['flour', 'sugar', 'rice', 'sauce'] as const);
+  const who = name(rng);
+  const prompt = rng.pick([
+    `A recipe uses ${fmt(per)} grams of ${ingredient} per serving. ${who} is cooking for ${servings} servings. About how many grams of ${ingredient} are needed?`,
+    `${who} scales a recipe to ${servings} servings, with each serving needing ${fmt(per)} grams of ${ingredient}. Roughly how much ${ingredient} in total?`,
+  ]);
+  return {
+    kind: 'recipe-scaling',
+    prompt,
+    unit: 'g',
+    exactValue: per * servings,
+    estimateValue: estimate,
+    mentalLogic: `≈ ${fmt(roundPer)} × ${servings} = ${fmt(estimate)} g.`,
+    formula: 'total = per serving × servings',
+    precision: 0,
+  };
+};
+
+export const ratioSplit: ProblemGenerator = (rng) => {
+  // total split in a ratio; the question asks for one share = total × share/parts.
+  // Choose total as a clean multiple of the parts so the share is exact-ish.
+  const { a, b } = rng.pick([
+    { a: 2, b: 3 },
+    { a: 3, b: 2 },
+    { a: 1, b: 3 },
+    { a: 3, b: 5 },
+    { a: 2, b: 5 },
+  ] as const);
+  const parts = a + b;
+  const shareRound = rng.pick([1200, 1500, 1800, 2400, 3000] as const); // clean per-part base
+  const roundTotal = shareRound * parts;
+  const total = messyNear(rng, roundTotal, { decimals: 0 });
+  const estimate = shareRound * a;
+  const who1 = name(rng);
+  const who2 = name(rng);
+  return {
+    kind: 'ratio-split',
+    prompt: `${who1} and ${who2} share $${fmt(total)} in the ratio ${a}:${b}. About how much is ${who1}'s share?`,
+    unit: '$',
+    exactValue: (total * a) / parts,
+    estimateValue: estimate,
+    mentalLogic: `≈ $${fmt(roundTotal)} × ${a}/${parts} = $${fmt(estimate)}.`,
+    formula: 'share = total × (part ÷ sum of parts)',
+    precision: 0,
+  };
+};
+
+export const compoundPercentage: ProblemGenerator = (rng) => {
+  // base grown for two periods: base × (1 + r%)². Rate is a clean integer so
+  // the estimate is the rounded base compounded the same way.
+  const roundBase = rng.pick([4000, 5000, 6000, 8000, 10000] as const);
+  const base = messyNear(rng, roundBase, { decimals: 0 });
+  const r = rng.pick([5, 8, 10] as const);
+  const factor = Math.pow(1 + r / 100, 2);
+  const estimate = Math.round(roundBase * factor);
+  const ctx = rng.pick([
+    { who: 'A town', noun: 'residents', verb: 'grows' },
+    { who: 'A startup', noun: 'subscribers', verb: 'grows' },
+    { who: 'A savings account', noun: 'baht', verb: 'compounds' },
+  ] as const);
+  return {
+    kind: 'compound-percentage',
+    prompt: `${ctx.who} has ${fmt(base)} ${ctx.noun} and ${ctx.verb} by about ${r}% each year for two years. Estimate the amount after two years.`,
+    unit: ctx.noun === 'baht' ? 'baht' : ctx.noun,
+    exactValue: base * factor,
+    estimateValue: estimate,
+    mentalLogic: `≈ ${fmt(roundBase)} × (1 + ${r}%)² ≈ ${fmt(estimate)}.`,
+    formula: 'amount = base × (1 + rate%)²',
+    precision: 0,
+  };
+};
+
+export const averageSpeedRoundtrip: ProblemGenerator = (rng) => {
+  // total distance ÷ total time over a there-and-back trip with clean legs.
+  const legDistRound = rng.pick([60, 90, 120, 150] as const);
+  const legDist = messyNear(rng, legDistRound, { decimals: 0 });
+  const totalTime = rng.pick([3, 4, 5, 6] as const); // total hours, both legs
+  const estimate = Math.round((2 * legDistRound) / totalTime);
+  const vehicle = rng.pick(['cyclist', 'rider', 'driver', 'runner'] as const);
+  const prompt = rng.pick([
+    `A ${vehicle} travels ${fmt(legDist)} kilometers to a destination and the same distance back, taking ${totalTime} hours in total. Estimate the average speed over the whole trip.`,
+    `Over a round trip of ${fmt(legDist)} kilometers each way, a ${vehicle} spends ${totalTime} hours in total. About what is the average speed?`,
+  ]);
+  return {
+    kind: 'average-speed-roundtrip',
+    prompt,
+    unit: 'km/hr',
+    exactValue: (2 * legDist) / totalTime,
+    estimateValue: estimate,
+    mentalLogic: `≈ (2 × ${fmt(legDistRound)}) ÷ ${totalTime} = ${fmt(estimate)} km/hr.`,
+    formula: 'average speed = total distance ÷ total time',
+    precision: 0,
+  };
+};
+
 export const ALL_GENERATORS: ProblemGenerator[] = [
   speed,
   unitPrice,
@@ -555,4 +735,11 @@ export const ALL_GENERATORS: ProblemGenerator[] = [
   discountPrice,
   averageOfGroup,
   tipOrTax,
+  currencyConversion,
+  mapDistance,
+  densityMass,
+  recipeScaling,
+  ratioSplit,
+  compoundPercentage,
+  averageSpeedRoundtrip,
 ];

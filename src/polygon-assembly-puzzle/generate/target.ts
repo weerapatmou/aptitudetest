@@ -12,7 +12,11 @@ export type TargetKind =
   | 'arrow'
   | 'plus'
   | 'chevron'
-  | 'parallelogram';
+  | 'parallelogram'
+  | 'octagon'
+  | 'house'
+  | 'heptagon'
+  | 'rightTrap';
 
 const KINDS: TargetKind[] = [
   'rect',
@@ -25,6 +29,10 @@ const KINDS: TargetKind[] = [
   'plus',
   'chevron',
   'parallelogram',
+  'octagon',
+  'house',
+  'heptagon',
+  'rightTrap',
 ];
 
 /**
@@ -184,6 +192,57 @@ function chevron(rng: Rng): Polygon {
   ];
 }
 
+function octagon(rng: Rng): Polygon {
+  // Regular-ish octagon (convex) with a flat-top orientation phase.
+  const R = rng.range(36, 46);
+  const phase = Math.PI / 8; // flat top/bottom, distinct from hexagon
+  const pts: Polygon = [];
+  for (let i = 0; i < 8; i++) {
+    const a = phase + (i * 2 * Math.PI) / 8;
+    pts.push({ x: R * Math.cos(a), y: R * Math.sin(a) });
+  }
+  return pts;
+}
+
+function house(rng: Rng): Polygon {
+  // Convex "home plate" pentagon: rectangular body with a pitched roof apex.
+  const halfW = rng.range(34, 44);
+  const bodyH = rng.range(20, 28); // half-height of the rectangular body
+  const roof = rng.range(22, 32); // roof rise above the body top
+  return [
+    { x: -halfW, y: bodyH },
+    { x: -halfW, y: -bodyH },
+    { x: 0, y: -bodyH - roof },
+    { x: halfW, y: -bodyH },
+    { x: halfW, y: bodyH },
+  ];
+}
+
+function heptagon(rng: Rng): Polygon {
+  // Convex regular-ish heptagon with a flat-bottom phase.
+  const R = rng.range(36, 46);
+  const phase = -Math.PI / 2 + Math.PI / 7; // point-up-ish, distinct from penta/hexagon
+  const pts: Polygon = [];
+  for (let i = 0; i < 7; i++) {
+    const a = phase + (i * 2 * Math.PI) / 7;
+    pts.push({ x: R * Math.cos(a), y: R * Math.sin(a) });
+  }
+  return pts;
+}
+
+function rightTrap(rng: Rng): Polygon {
+  // Right trapezoid: one vertical side, one slanted side (convex quad).
+  const w = rng.range(40, 52);
+  const tall = rng.range(26, 36); // half-height on the vertical (left) side
+  const shortTop = rng.range(10, 20); // how much the top edge is shortened on the right
+  return [
+    { x: -w / 2, y: tall },
+    { x: -w / 2, y: -tall },
+    { x: w / 2 - shortTop, y: -tall },
+    { x: w / 2, y: tall },
+  ];
+}
+
 function buildKind(kind: TargetKind, rng: Rng): Polygon {
   switch (kind) {
     case 'rect': return rect(rng);
@@ -196,6 +255,10 @@ function buildKind(kind: TargetKind, rng: Rng): Polygon {
     case 'plus': return plus(rng);
     case 'chevron': return chevron(rng);
     case 'parallelogram': return parallelogram(rng);
+    case 'octagon': return octagon(rng);
+    case 'house': return house(rng);
+    case 'heptagon': return heptagon(rng);
+    case 'rightTrap': return rightTrap(rng);
   }
 }
 

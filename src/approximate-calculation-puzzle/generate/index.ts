@@ -3,6 +3,7 @@ import { defaultRng, makeRng } from './rng';
 import type { Rng } from './rng';
 import { buildLadderOptions } from './options';
 import { ALL_GENERATORS, speed } from './archetypes';
+import { generateDistinctSession } from '@/shared/coverage';
 
 const MAX_VIABILITY_ATTEMPTS = 12;
 
@@ -43,14 +44,29 @@ export function generateApproxQuestion(rng: Rng = defaultRng): ApproxQuestion {
   };
 }
 
+/**
+ * The structural essence a solver memorizes: the archetype KIND plus the
+ * order-of-magnitude bucket of the estimate (so "≈ 500" and "≈ 5000" of the
+ * same kind read as different). The continuous messy jitter is excluded — it's
+ * what the eye is meant to round through. Used to keep a session free of
+ * repeated problem shapes and to steer fresh sessions away from recent ones.
+ */
+export function signatureOf(problem: ApproxProblem): string {
+  const mag =
+    Number.isFinite(problem.estimateValue) && problem.estimateValue > 0
+      ? Math.floor(Math.log10(problem.estimateValue))
+      : 0;
+  return `${problem.kind}:${mag}`;
+}
+
 /** Pre-generate a full session up-front for determinism. */
 export function generateSession(settings: ApproxSettings, seed?: number): ApproxQuestion[] {
   const rng = seed !== undefined ? makeRng(seed) : defaultRng;
-  const out: ApproxQuestion[] = [];
-  for (let i = 0; i < settings.count; i++) {
-    out.push(generateApproxQuestion(rng));
-  }
-  return out;
+  return generateDistinctSession(
+    settings.count,
+    () => generateApproxQuestion(rng),
+    (q) => signatureOf(q.problem),
+  );
 }
 
 export { buildLadderOptions } from './options';

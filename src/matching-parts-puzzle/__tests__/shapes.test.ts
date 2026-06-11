@@ -13,6 +13,8 @@ const EXPECTED_VERT_COUNT: Record<string, { min: number; max: number }> = {
   triangle: { min: 3, max: 3 },
   pentagon: { min: 5, max: 5 },
   parallelogram: { min: 4, max: 4 },
+  octagon: { min: 8, max: 8 },
+  trapezoid: { min: 4, max: 4 },
 };
 
 describe('shapes — reference generators', () => {

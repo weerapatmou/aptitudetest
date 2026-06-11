@@ -51,6 +51,11 @@ export type Puzzle = {
   difficulty: Difficulty;
   /** Shared SVG viewBox sized from the union of all projected bounds. */
   viewBox: string;
+  /**
+   * Rotation-canonical key of the base solid (24-rotation normalized; mirrors
+   * NOT folded). Identifies the underlying chiral pattern for session anti-repeat.
+   */
+  baseKey: string;
 };
 
 export type Settings = {

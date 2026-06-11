@@ -1,6 +1,7 @@
 import type { Difficulty, PatternKind, SeriesPattern, SeriesQuestion, SeriesSettings } from '../types';
 import { defaultRng, makeRng } from './rng';
 import type { Rng } from './rng';
+import { generateDistinctSession } from '@/shared/coverage';
 import { buildOptions } from './distractors';
 import { EASY_GENERATORS, arithAddSmall, multiples, counting } from './patterns/easy';
 import { MEDIUM_GENERATORS, fibonacci, oddStepAdd, triangular } from './patterns/medium';
@@ -184,18 +185,33 @@ export function generateSeriesQuestion(
 }
 
 /**
- * Pre-generate a full session of questions up-front for determinism.
+ * The structural essence a solver memorizes: the pattern rule plus whether the
+ * blank is the last term (predict-next, "L") or an interior gap ("M"). The
+ * concrete numbers and blank offset vary per instance — they're what the eye is
+ * meant to work through — so they're excluded. Used to keep a session free of
+ * repeated rule/blank types and to steer fresh sessions away from recent ones.
+ */
+export function signatureOf(q: SeriesQuestion): string {
+  const lastIndex = q.visibleTerms.length - 1;
+  return `${q.pattern.kind}:${q.missingIndex === lastIndex ? 'L' : 'M'}`;
+}
+
+/**
+ * Pre-generate a full session of questions up-front for determinism. Wrapped in
+ * generateDistinctSession so consecutive questions don't repeat the same
+ * rule/blank signature (anti-memorization). Retries draw from the same seeded
+ * rng, so the session stays reproducible per seed.
  */
 export function generateSession(
   settings: SeriesSettings,
   seed?: number,
 ): SeriesQuestion[] {
   const rng = seed !== undefined ? makeRng(seed) : defaultRng;
-  const out: SeriesQuestion[] = [];
-  for (let i = 0; i < settings.count; i++) {
-    out.push(generateSeriesQuestion(settings.difficulty, rng));
-  }
-  return out;
+  return generateDistinctSession(
+    settings.count,
+    () => generateSeriesQuestion(settings.difficulty, rng),
+    signatureOf,
+  );
 }
 
 export { buildOptions } from './distractors';

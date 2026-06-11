@@ -12,10 +12,11 @@ import { DIFFICULTY_LABEL } from './types';
 import { DifficultyBadge } from './DifficultyBadge';
 import { QuestionCard } from './QuestionCard';
 import { HowToPlay } from './HowToPlay';
-import { generateSession } from './generate';
+import { generateSession, signatureOf } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 const COUNT_PRESETS = [5, 10, 20, 50] as const;
@@ -37,7 +38,17 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
   // Stored settings predating the `mode` field would be `undefined`; normalize.
   const mode: PracticeMode = settings.mode ?? 'sequential';
 
-  const seedState = useSeed('numberSeries:lastSeed');
+  const history = useSignatureHistory('numberSeries:sigHistory', { max: 150 });
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          generateSession({ ...settings, count: Math.min(settings.count, 8) }, s).map(signatureOf),
+      }).seed,
+    [history.recent, settings],
+  );
+  const seedState = useSeed('numberSeries:lastSeed', undefined, { pickSeed });
   const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -64,6 +75,7 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
       seedState.commit(useSeed);
       const generated = generateSession(settings, useSeed);
       setQuestions(generated);
+      history.add(generated.map(signatureOf));
       setResults([]);
       resetTimer();
       if (mode === 'sheet') {
@@ -77,7 +89,7 @@ export function NumberSeriesPuzzle({ difficulty: difficultyProp, onHome }: Props
         setPhase('answering');
       }
     },
-    [settings, mode, resetTimer, seedState],
+    [settings, mode, resetTimer, seedState, history],
   );
 
   // A fresh set of brand-new questions (new random seed each time).

@@ -54,7 +54,11 @@ export type OuterShape =
   | { kind: 'kite'; vertices: Pt[] }
   | { kind: 'chevron'; vertices: Pt[] }
   | { kind: 'teardrop'; vertices: Pt[] }
-  | { kind: 'gear'; vertices: Pt[] };
+  | { kind: 'gear'; vertices: Pt[] }
+  | { kind: 'pinwheel'; vertices: Pt[] }
+  | { kind: 'combBar'; vertices: Pt[] }
+  | { kind: 'unevenStar'; vertices: Pt[] }
+  | { kind: 'pennant'; vertices: Pt[] };
 
 export type Figure = {
   outer: OuterShape;

@@ -1,9 +1,10 @@
 import type { Command, Difficulty, Puzzle, Settings } from '../types';
 import { COMMANDS } from '../types';
-import { applyCommand, IDENTITY, resolvePlacement, type Mat3 } from './cube';
+import { applyCommand, IDENTITY, placementKey, resolvePlacement, type Mat3 } from './cube';
 import { generateChoices } from './distractors';
 import { GLYPHS, VIEWBOX } from './iso';
 import { makeRng, type Rng } from '@/rotation-puzzle/generate/rng';
+import { generateDistinctSession } from '@/shared/coverage';
 
 /**
  * Inclusive sequence-length band per difficulty. The exact length is rolled per
@@ -12,8 +13,8 @@ import { makeRng, type Rng } from '@/rotation-puzzle/generate/rng';
  */
 const SEQ_LEN_RANGE: Record<Difficulty, [number, number]> = {
   easy: [3, 4],
-  normal: [4, 5],
-  hard: [5, 7],
+  normal: [4, 6],
+  hard: [5, 8],
 };
 
 function rollDifficulty(setting: Settings['difficulty'], rng: Rng): Difficulty {
@@ -92,9 +93,24 @@ export function generatePuzzle(difficulty: Difficulty, rng: Rng, id: string): Pu
   };
 }
 
+/**
+ * The trajectory a solver actually tracks: the mark's starting placement followed
+ * by its placement after every command, joined with '>'. Final-placement alone
+ * spans only ~12 visible states, so two questions can land identically while
+ * taking wholly different paths — keying on the whole trajectory keeps a session
+ * (and the cross-session history) varied. The cosmetic glyph is excluded.
+ */
+export function signatureOf(puzzle: Puzzle): string {
+  const placements = [puzzle.initial, ...puzzle.steps];
+  return placements.map(placementKey).join('>');
+}
+
 export function generateSession(settings: Settings, seed?: number): Puzzle[] {
   const rng = makeRng(seed);
-  return Array.from({ length: settings.count }, (_, i) =>
-    generatePuzzle(rollDifficulty(settings.difficulty, rng), rng, `fb-${i}`),
+  let i = 0;
+  return generateDistinctSession(
+    settings.count,
+    () => generatePuzzle(rollDifficulty(settings.difficulty, rng), rng, `fb-${i++}`),
+    signatureOf,
   );
 }

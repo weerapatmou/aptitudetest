@@ -201,6 +201,141 @@ const constPlusPow2: PatternGenerator = (rng, length) => {
   };
 };
 
+// E13: alternating add / subtract with small steps (+a, −b, +a, −b, …).
+// Net drift stays positive (a > b) so the run climbs gently; every adjacent
+// step is a small add the solver does in their head.
+const addSubAlt: PatternGenerator = (rng, length) => {
+  const a = rng.int(4, 10); // 4..9 (add step)
+  const b = rng.int(1, a - 1); // 1..a-1 (subtract step), smaller so the run rises
+  const start = rng.int(5, 30);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + (i % 2 === 1 ? a : -b));
+  }
+  return {
+    kind: 'add-sub-alt',
+    difficulty: 'easy',
+    formula: `+${a}, −${b}, +${a}, −${b}, …`,
+    explanation: `Alternately add ${a}, then subtract ${b}.`,
+    terms,
+  };
+};
+
+// E14: double then add 1 (aₙ₊₁ = 2·aₙ + 1).
+const doubleAdd1: PatternGenerator = (rng, length) => {
+  const start = rng.int(1, 5);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) terms.push(terms[i - 1]! * 2 + 1);
+  return {
+    kind: 'double-add-1',
+    difficulty: 'easy',
+    formula: 'aₙ₊₁ = 2·aₙ + 1',
+    explanation: 'Each term is the previous one doubled, plus 1.',
+    terms,
+  };
+};
+
+// E15: skip-count (multiples of k) starting from a non-zero offset.
+const skipCountOffset: PatternGenerator = (rng, length) => {
+  const k = rng.int(3, 10); // 3..9
+  const offset = rng.int(1, k - 1); // 1..k-1 — a constant tacked onto each multiple
+  const startIdx = rng.int(1, 5);
+  const terms = Array.from({ length }, (_, i) => k * (startIdx + i) + offset);
+  return {
+    kind: 'skip-count-offset',
+    difficulty: 'easy',
+    formula: `aₙ = ${k}·n + ${offset}`,
+    explanation: `Count up by ${k}, each term offset by ${offset}.`,
+    terms,
+  };
+};
+
+// E16: ones-place cycle — add a fixed step whose ones digit cycles (e.g. +7 →
+// 3, 10, 17, 24, …, the ones digit walks 3,0,7,4,1,…). Still a constant add, so
+// it reads as simple arithmetic with an eye-catching repeating last digit.
+const onesPlaceCycle: PatternGenerator = (rng, length) => {
+  const k = rng.pick([3, 7, 9, 11, 13] as const);
+  const start = rng.int(1, 9);
+  const terms = Array.from({ length }, (_, i) => start + k * i);
+  return {
+    kind: 'ones-place-cycle',
+    difficulty: 'easy',
+    formula: `aₙ = ${start} + ${k}·(n−1)`,
+    explanation: `Add ${k} each time — watch the ones digit cycle.`,
+    terms,
+  };
+};
+
+// E17: add a small constant, then double — alternating (+k, ×2, +k, ×2, …).
+const addThenDouble: PatternGenerator = (rng, length) => {
+  const k = rng.int(1, 5); // 1..4
+  const start = rng.int(1, 4);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(i % 2 === 1 ? terms[i - 1]! + k : terms[i - 1]! * 2);
+  }
+  return {
+    kind: 'add-then-double',
+    difficulty: 'easy',
+    formula: `+${k}, ×2, +${k}, ×2, …`,
+    explanation: `Alternately add ${k}, then double.`,
+    terms,
+  };
+};
+
+// E18: two alternating add-steps that repeat (+a, +b, +a, +b, …).
+const addPairRepeat: PatternGenerator = (rng, length) => {
+  const a = rng.int(2, 9); // 2..8
+  let b = rng.int(2, 9);
+  if (b === a) b = (b % 8) + 2; // keep the two steps distinct
+  const start = rng.int(1, 20);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + (i % 2 === 1 ? a : b));
+  }
+  return {
+    kind: 'add-pair-repeat',
+    difficulty: 'easy',
+    formula: `+${a}, +${b}, +${a}, +${b}, …`,
+    explanation: `The gap alternates between +${a} and +${b}.`,
+    terms,
+  };
+};
+
+// E19: subtract then add — descending overall (−a, +b, …) with a > b so the
+// run drifts down. Started high enough to stay positive across the window.
+const subThenAdd: PatternGenerator = (rng, length) => {
+  const a = rng.int(4, 11); // 4..10 (subtract step)
+  const b = rng.int(1, a - 1); // 1..a-1 (add step), smaller so the run falls
+  const start = rng.int(60, 100);
+  const terms: number[] = [start];
+  for (let i = 1; i < length; i++) {
+    terms.push(terms[i - 1]! + (i % 2 === 1 ? -a : b));
+  }
+  return {
+    kind: 'sub-then-add',
+    difficulty: 'easy',
+    formula: `−${a}, +${b}, −${a}, +${b}, …`,
+    explanation: `Alternately subtract ${a}, then add ${b}.`,
+    terms,
+  };
+};
+
+// E20: add a two-digit constant whose tens and ones both step (e.g. +11, +12,
+// +21, +22). A plain constant add, but the digits make the rule pop visually.
+const tensPlusOnes: PatternGenerator = (rng, length) => {
+  const k = rng.pick([11, 12, 21, 22, 33] as const);
+  const start = rng.int(1, 20);
+  const terms = Array.from({ length }, (_, i) => start + k * i);
+  return {
+    kind: 'tens-plus-ones',
+    difficulty: 'easy',
+    formula: `aₙ = ${start} + ${k}·(n−1)`,
+    explanation: `Add ${k} each step.`,
+    terms,
+  };
+};
+
 export const EASY_GENERATORS: PatternGenerator[] = [
   arithAddSmall,
   arithAddRound,
@@ -214,4 +349,12 @@ export const EASY_GENERATORS: PatternGenerator[] = [
   countDown,
   geoFractional,
   constPlusPow2,
+  addSubAlt,
+  doubleAdd1,
+  skipCountOffset,
+  onesPlaceCycle,
+  addThenDouble,
+  addPairRepeat,
+  subThenAdd,
+  tensPlusOnes,
 ];

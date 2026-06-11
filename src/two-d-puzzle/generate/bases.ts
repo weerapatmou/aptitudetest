@@ -155,28 +155,34 @@ function arrow(rng: Rng): Polygon {
   return recenter(fitToSize(poly, SIDE));
 }
 
-const VARIED: Array<{ make: (rng: Rng) => Polygon; weight: number }> = [
-  { make: () => square(), weight: 2 },
-  { make: rectangleBase, weight: 2 },
-  { make: rotatedSquare, weight: 2 },
-  { make: parallelogram, weight: 2 },
-  { make: trapezoid, weight: 2 },
-  { make: pentagonHouse, weight: 2 },
-  { make: hexagon, weight: 2 },
-  { make: octagon, weight: 2 },
-  { make: rightTrapezoid, weight: 2 },
-  { make: arrow, weight: 1 },
+const VARIED: Array<{ kind: string; make: (rng: Rng) => Polygon; weight: number }> = [
+  { kind: 'square', make: () => square(), weight: 2 },
+  { kind: 'rectangle', make: rectangleBase, weight: 2 },
+  { kind: 'rotatedSquare', make: rotatedSquare, weight: 2 },
+  { kind: 'parallelogram', make: parallelogram, weight: 2 },
+  { kind: 'trapezoid', make: trapezoid, weight: 2 },
+  { kind: 'pentagonHouse', make: pentagonHouse, weight: 2 },
+  { kind: 'hexagon', make: hexagon, weight: 2 },
+  { kind: 'octagon', make: octagon, weight: 2 },
+  { kind: 'rightTrapezoid', make: rightTrapezoid, weight: 2 },
+  { kind: 'arrow', make: arrow, weight: 1 },
 ];
 const VARIED_TOTAL = VARIED.reduce((s, b) => s + b.weight, 0);
 
+/** A completed base shape plus the identifier of the generator that produced it. */
+export type PickedBase = { kind: string; polygon: Polygon };
+
 /** Pick a completed base shape (centered on origin) for the requested scope. */
-export function pickBase(scope: ShapeScope, rng: Rng): Polygon {
-  if (scope === 'square') return square();
-  if (scope === 'square-rect') return rng.bool(0.5) ? square() : rectangleBase(rng);
+export function pickBase(scope: ShapeScope, rng: Rng): PickedBase {
+  if (scope === 'square') return { kind: 'square', polygon: square() };
+  if (scope === 'square-rect')
+    return rng.bool(0.5)
+      ? { kind: 'square', polygon: square() }
+      : { kind: 'rectangle', polygon: rectangleBase(rng) };
   let r = rng.next() * VARIED_TOTAL;
   for (const b of VARIED) {
     r -= b.weight;
-    if (r <= 0) return b.make(rng);
+    if (r <= 0) return { kind: b.kind, polygon: b.make(rng) };
   }
-  return square();
+  return { kind: 'square', polygon: square() };
 }

@@ -1,20 +1,6 @@
-import type { Arrangement, Cell, Difficulty } from '../types';
+import type { Archetype, Arrangement, Cell, Difficulty } from '../types';
 import type { Rng } from './rng';
 import { hiddenCubes } from './counting';
-
-type Archetype =
-  | 'box'
-  | 'staircase'
-  | 'pyramid'
-  | 'tower-on-box'
-  | 'l-prism'
-  | 'frame'
-  | 'well'
-  | 'plus'
-  | 'u-shape'
-  | 'two-towers'
-  | 't-prism'
-  | 'step-pyramid';
 
 type Cfg = {
   cols: [number, number]; // inclusive footprint width range
@@ -35,7 +21,7 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, Cfg> = {
     rows: [2, 3],
     hMin: 1,
     hMax: 3,
-    archetypes: ['box', 'staircase', 'pyramid', 't-prism', 'step-pyramid'],
+    archetypes: ['box', 'staircase', 'pyramid', 't-prism', 'step-pyramid', 'zigzag-ridge'],
     totalMin: 4,
     totalMax: 16,
     hiddenMin: 1,
@@ -55,6 +41,9 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, Cfg> = {
       't-prism',
       'two-towers',
       'step-pyramid',
+      'stepped-l',
+      'zigzag-ridge',
+      'pinwheel',
     ],
     totalMin: 10,
     totalMax: 30,
@@ -78,6 +67,11 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, Cfg> = {
       'two-towers',
       't-prism',
       'step-pyramid',
+      'stepped-l',
+      'tunnel',
+      'zigzag-ridge',
+      'double-well',
+      'pinwheel',
     ],
     totalMin: 18,
     totalMax: 60,
@@ -95,7 +89,12 @@ function clampH(h: number, cfg: Cfg): number {
   return Math.max(0, Math.min(cfg.hMax, h));
 }
 
-function materialize(cols: number, rows: number, height: number[][]): Arrangement {
+function materialize(
+  archetype: Archetype,
+  cols: number,
+  rows: number,
+  height: number[][],
+): Arrangement {
   const cells: Cell[] = [];
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
@@ -103,7 +102,7 @@ function materialize(cols: number, rows: number, height: number[][]): Arrangemen
       for (let z = 0; z < h; z++) cells.push({ x, y, z });
     }
   }
-  return { cols, rows, height, cells, total: cells.length };
+  return { archetype, cols, rows, height, cells, total: cells.length };
 }
 
 // ---- archetype builders (each returns a heightmap) ----
@@ -343,6 +342,117 @@ function buildStepPyramid(cols: number, rows: number, rng: Rng, cfg: Cfg): numbe
   return height;
 }
 
+function buildSteppedL(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // An L-shaped footprint (corner notch removed) extruded to a uniform height,
+  // then the short arm lifted one step taller — a two-tier L. The +1 step keeps
+  // it readable (no ≥2 jump), and the L footprint hides support cubes.
+  const base = rng.int(1, cfg.hMax); // [1, hMax-1] so the +1 step still fits
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) height[x]![y] = base;
+
+  // Remove a corner rectangle (1..cols-1 × 1..rows-1) → an L footprint.
+  const cw = rng.int(1, cols);
+  const ch = rng.int(1, rows);
+  const atRight = rng.bool();
+  const atFront = rng.bool();
+  const nx0 = atRight ? cols - cw : 0;
+  const ny0 = atFront ? rows - ch : 0;
+  for (let x = nx0; x < nx0 + cw; x++) {
+    for (let y = ny0; y < ny0 + ch; y++) height[x]![y] = 0;
+  }
+
+  // Lift one full edge band (the arm opposite the notch) by +1 so the L reads
+  // as two tiers. Band runs along the edge farthest from the removed corner.
+  const lift = clampH(base + 1, cfg);
+  if (atRight) {
+    for (let y = 0; y < rows; y++) if (height[0]![y]! > 0) height[0]![y] = lift;
+  } else {
+    for (let y = 0; y < rows; y++) if (height[cols - 1]![y]! > 0) height[cols - 1]![y] = lift;
+  }
+  return height;
+}
+
+function buildTunnel(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // A solid box with a one-column-deep channel cut straight through from one
+  // boundary edge to the opposite edge (a tunnel/arch mouth at both ends). The
+  // channel touches the outside on both ends, so it's never an enclosed hole.
+  const h = rng.int(2, cfg.hMax + 1);
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) height[x]![y] = h;
+
+  const alongX = rng.bool();
+  if (alongX) {
+    if (rows < 3) return height; // need a wall on each side of the channel
+    const y = rng.int(1, rows - 1); // 1..rows-2 → interior lane, walls both sides
+    for (let x = 0; x < cols; x++) height[x]![y] = 0;
+  } else {
+    if (cols < 3) return height;
+    const x = rng.int(1, cols - 1);
+    for (let y = 0; y < rows; y++) height[x]![y] = 0;
+  }
+  return height;
+}
+
+function buildZigzagRidge(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // Alternating-height ridges running along one axis: each row (or column) is one
+  // step taller or shorter than its neighbor, but only by ±1 so it stays readable.
+  // A corrugated roof of cubes — every column has a hidden support stack.
+  const lo = Math.max(1, cfg.hMin);
+  const hi = clampH(lo + 1, cfg);
+  const alongRows = rng.bool();
+  const phase = rng.int(0, 2);
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
+      const idx = alongRows ? y : x;
+      height[x]![y] = (idx + phase) % 2 === 0 ? hi : lo;
+    }
+  }
+  return height;
+}
+
+function buildDoubleWell(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // A box with two separate single-column recesses sunk one step into the top
+  // surface, placed apart so neither is hemmed on opposite sides. The −1 dip
+  // keeps it readable (no deep pit), and the solid footprint hides support cubes.
+  const wall = rng.int(2, cfg.hMax + 1);
+  const inner = clampH(wall - 1, cfg); // exactly one step down → visible, not a pit
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) height[x]![y] = wall;
+  if (cols < 3 || rows < 2) return height; // too small to dent readably → plain box
+
+  // Two interior cells on the same interior row, separated by a wall column.
+  const y = rng.int(1, rows - 1); // interior depth (so it's not on the very edge if possible)
+  const yy = Math.min(rows - 1, Math.max(0, y));
+  const ax = 0; // dips at opposite ends of the row, with the box wall between them
+  const bx = cols - 1;
+  height[ax]![yy] = inner;
+  height[bx]![yy] = inner;
+  return height;
+}
+
+function buildPinwheel(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // A low solid base with four short arms reaching out toward the edge midpoints,
+  // each arm offset by a quarter-turn — a rotor silhouette. Arms sit one step
+  // above the base (±1, readable) and the whole footprint is solid (hidden cubes).
+  const base = rng.int(1, cfg.hMax); // [1, hMax-1] so arms show +1 above
+  const arm = clampH(base + 1, cfg);
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) height[x]![y] = base;
+
+  const cx = Math.floor(cols / 2);
+  const cy = Math.floor(rows / 2);
+  // Four arms, each a 2-cell stub rotated 90° from the previous — a pinwheel.
+  const lift = (x: number, y: number) => {
+    if (x >= 0 && x < cols && y >= 0 && y < rows) height[x]![y] = arm;
+  };
+  lift(cx, 0); lift(cx, 1); // up arm
+  lift(cols - 1, cy); lift(cols - 2, cy); // right arm
+  lift(cx, rows - 1); lift(cx, rows - 2); // down arm
+  lift(0, cy); lift(1, cy); // left arm
+  return height;
+}
+
 function buildArchetype(kind: Archetype, cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
   switch (kind) {
     case 'box': return buildBox(cols, rows, rng, cfg);
@@ -357,6 +467,11 @@ function buildArchetype(kind: Archetype, cols: number, rows: number, rng: Rng, c
     case 'two-towers': return buildTwoTowers(cols, rows, rng, cfg);
     case 't-prism': return buildTPrism(cols, rows, rng, cfg);
     case 'step-pyramid': return buildStepPyramid(cols, rows, rng, cfg);
+    case 'stepped-l': return buildSteppedL(cols, rows, rng, cfg);
+    case 'tunnel': return buildTunnel(cols, rows, rng, cfg);
+    case 'zigzag-ridge': return buildZigzagRidge(cols, rows, rng, cfg);
+    case 'double-well': return buildDoubleWell(cols, rows, rng, cfg);
+    case 'pinwheel': return buildPinwheel(cols, rows, rng, cfg);
   }
 }
 
@@ -441,7 +556,7 @@ function solidFallback(cfg: Cfg): Arrangement {
   const rows = cfg.rows[0];
   const h = 2;
   const height = Array.from({ length: cols }, () => new Array<number>(rows).fill(h));
-  return materialize(cols, rows, height);
+  return materialize('box', cols, rows, height);
 }
 
 /** Generate a readable, support-valid cube stack meeting the difficulty constraints. */
@@ -455,7 +570,7 @@ export function buildArrangement(difficulty: Difficulty, rng: Rng): Arrangement 
 
     if (!isConnected(cols, rows, height)) continue;
     if (!isReadable(cols, rows, height)) continue;
-    const a = materialize(cols, rows, height);
+    const a = materialize(kind, cols, rows, height);
     if (a.total < cfg.totalMin || a.total > cfg.totalMax) continue;
     // Solid convex shapes earn their difficulty from hidden support cubes, so
     // require a minimum. Structural shapes (rings/wells/cross/L) are challenging
@@ -466,7 +581,10 @@ export function buildArrangement(difficulty: Difficulty, rng: Rng): Arrangement 
       kind === 'plus' ||
       kind === 'l-prism' ||
       kind === 'u-shape' ||
-      kind === 't-prism';
+      kind === 't-prism' ||
+      kind === 'stepped-l' || // L footprint gap
+      kind === 'tunnel' || // channel cut to the floor
+      kind === 'double-well'; // sunken interior cells
     if (!structural && hiddenCubes(a) < cfg.hiddenMin) continue;
     return a;
   }

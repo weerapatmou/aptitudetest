@@ -61,6 +61,17 @@ export function generateReferenceShape(kind: ReferenceShapeKind, rng?: Rng): Ref
       const skew = vary(rng, 20, 32, 26);
       return { kind, polygon: recenter(parallelogram(w, h, skew)) };
     }
+    case 'octagon': {
+      const R = vary(rng, 76, 90, 82);
+      return { kind, polygon: recenter(regularPolygon(8, R, -Math.PI / 8)) };
+    }
+    case 'trapezoid': {
+      // Isosceles trapezoid: top edge narrower than the base.
+      const bottomW = vary(rng, 150, 178, 164);
+      const topW = vary(rng, 78, 104, 90);
+      const h = vary(rng, 96, 118, 108);
+      return { kind, polygon: recenter(trapezoid(bottomW, topW, h)) };
+    }
   }
 }
 
@@ -97,6 +108,12 @@ export function nearTwinShape(kind: ReferenceShapeKind, rng?: Rng): ReferenceSha
     case 'parallelogram':
       // Wrong proportions: shallower body + heavier skew.
       return { kind: 'parallelogram', polygon: recenter(parallelogram(vary(rng, 140, 156, 148), vary(rng, 78, 92, 84), vary(rng, 40, 52, 46))) };
+    case 'octagon':
+      // Same vertex count, but uneven radii so the outline reads "wrong".
+      return { kind: 'octagon', polygon: recenter(irregularOctagon(vary(rng, 78, 88, 82))) };
+    case 'trapezoid':
+      // Wrong proportions: much wider top relative to base + taller body.
+      return { kind: 'trapezoid', polygon: recenter(trapezoid(vary(rng, 130, 150, 140), vary(rng, 116, 134, 124), vary(rng, 118, 136, 126))) };
   }
 }
 
@@ -192,4 +209,24 @@ function irregularPentagon(R: number): Polygon {
   const base = regularPolygon(5, R, -Math.PI / 2);
   const scales = [1.1, 0.82, 1.06, 0.82, 1.1];
   return base.map((p, i) => ({ x: p.x * scales[i]!, y: p.y * scales[i]! }));
+}
+
+function irregularOctagon(R: number): Polygon {
+  // Same vertex count as a regular octagon but with uneven radii.
+  const base = regularPolygon(8, R, -Math.PI / 8);
+  const scales = [1.05, 0.82, 1.05, 0.82, 1.05, 0.82, 1.05, 0.82];
+  return base.map((p, i) => ({ x: p.x * scales[i]!, y: p.y * scales[i]! }));
+}
+
+/** Isosceles trapezoid: wide base at the bottom, narrower top edge. */
+function trapezoid(bottomW: number, topW: number, h: number): Polygon {
+  const hb = bottomW / 2;
+  const ht = topW / 2;
+  const hh = h / 2;
+  return [
+    { x: -ht, y: -hh },
+    { x:  ht, y: -hh },
+    { x:  hb, y:  hh },
+    { x: -hb, y:  hh },
+  ];
 }

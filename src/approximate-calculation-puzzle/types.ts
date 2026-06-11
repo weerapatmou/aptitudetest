@@ -22,7 +22,14 @@ export type ArchetypeKind =
   | 'time-to-finish' // total ÷ per-period
   | 'discount-price' // price × (1 − discount%)
   | 'average-of-group' // total ÷ count
-  | 'tip-or-tax'; // bill × rate%
+  | 'tip-or-tax' // bill × rate%
+  | 'currency-conversion' // amount × exchange rate
+  | 'map-distance' // map cm × scale (km per cm)
+  | 'density-mass' // volume × density
+  | 'recipe-scaling' // per-serving × servings
+  | 'ratio-split' // total × (share ÷ parts)
+  | 'compound-percentage' // base × (1 + r%)² ("two years of growth")
+  | 'average-speed-roundtrip'; // total distance ÷ total time
 
 export type DistractorKind =
   | 'order-of-magnitude' // ×10 or ÷10 slip (dropped a zero)

@@ -1,4 +1,5 @@
 import { makeRng, type Rng } from '../../rotation-puzzle/generate/rng';
+import { generateDistinctSession } from '@/shared/coverage';
 import type { Block, Difficulty, Puzzle, Settings, Vec3 } from '../types';
 import { computeAllTouching, drawOrder, growCluster } from './geometry';
 import { computeViewBox, topFaceCentroid } from './projection';
@@ -67,14 +68,37 @@ export function generatePuzzle(difficulty: Difficulty, rng: Rng, id: string): Pu
   return generatePuzzle(difficulty, makeRng(rng.int(0, 0x7fffffff)), id);
 }
 
+/**
+ * The structural essence a solver memorizes: the cluster's block count plus the
+ * sorted multiset of block sizes and of touching-face counts. The exact grid
+ * placement and labels are excluded (they don't change the perceived shape).
+ * Used to keep a session free of repeated clusters and to steer fresh sessions
+ * away from recent ones.
+ */
+export function signatureOf(puzzle: Puzzle): string {
+  const count = puzzle.blocks.length;
+  const sizes = puzzle.blocks
+    .map((b) => `${b.size.x}x${b.size.y}x${b.size.z}`)
+    .sort()
+    .join(',');
+  const faces = puzzle.blocks
+    .map((b) => b.touchingFaces)
+    .sort((a, b) => a - b)
+    .join(',');
+  return `${count}:${sizes}:${faces}`;
+}
+
 /** Generate a full sheet of puzzles. Deterministic for a given `seed`. */
 export function generateSession(settings: Settings, seed?: number): Puzzle[] {
   const rng = makeRng(seed);
-  const out: Puzzle[] = [];
-  for (let i = 0; i < settings.count; i++) {
-    const difficulty =
-      settings.difficulty === 'mixed' ? rng.pick(ALL_DIFFICULTIES) : settings.difficulty;
-    out.push(generatePuzzle(difficulty, rng, `bt-${i}`));
-  }
-  return out;
+  let i = 0;
+  return generateDistinctSession(
+    settings.count,
+    () => {
+      const difficulty =
+        settings.difficulty === 'mixed' ? rng.pick(ALL_DIFFICULTIES) : settings.difficulty;
+      return generatePuzzle(difficulty, rng, `bt-${i++}`);
+    },
+    signatureOf,
+  );
 }

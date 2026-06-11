@@ -6,10 +6,11 @@ import { DifficultyBadge } from './DifficultyBadge';
 import { BlockFigure } from './BlockFigure';
 import { Block3DViewer } from './Block3DViewer';
 import { HowToPlay } from './HowToPlay';
-import { generateSession } from './generate';
+import { generateSession, signatureOf } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
+import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 
 const COUNT_PRESETS = [10, 20, 30, 40] as const;
 
@@ -42,7 +43,17 @@ export function BlockTouchingPuzzle({ onHome }: Props = {}) {
     count: 20,
     difficulty: 'mixed',
   });
-  const seedState = useSeed('blockTouching:lastSeed');
+  const history = useSignatureHistory('blockTouching:sigHistory', { max: 150 });
+  const pickSeed = useCallback(
+    () =>
+      pickFreshSeed({
+        recent: history.recent,
+        previewSignatures: (s) =>
+          generateSession({ ...settings, count: Math.min(settings.count, 8) }, s).map(signatureOf),
+      }).seed,
+    [history.recent, settings],
+  );
+  const seedState = useSeed('blockTouching:lastSeed', undefined, { pickSeed });
   const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -56,13 +67,15 @@ export function BlockTouchingPuzzle({ onHome }: Props = {}) {
   const launch = useCallback(
     (useSeed: number) => {
       seedState.commit(useSeed);
-      setPuzzles(generateSession(settings, useSeed));
+      const pz = generateSession(settings, useSeed);
+      setPuzzles(pz);
+      history.add(pz.map(signatureOf));
       setAnswers({});
       setSubmitted(false);
       resetTimer();
       setPhase('sheet');
     },
-    [settings, resetTimer, seedState],
+    [settings, resetTimer, seedState, history],
   );
 
   // A fresh sheet of brand-new arrangements (new random seed each time).
