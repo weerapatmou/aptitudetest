@@ -2,15 +2,29 @@ import type { Command, Difficulty, Puzzle, Settings } from '../types';
 import { COMMANDS } from '../types';
 import { applyCommand, IDENTITY, resolvePlacement, type Mat3 } from './cube';
 import { generateChoices } from './distractors';
-import { VIEWBOX } from './iso';
+import { GLYPHS, VIEWBOX } from './iso';
 import { makeRng, type Rng } from '@/rotation-puzzle/generate/rng';
 
-/** Sequence length per difficulty (mirrors the worksheet's 3–6 step questions). */
-const SEQ_LEN: Record<Difficulty, number> = { easy: 3, normal: 4, hard: 6 };
+/**
+ * Inclusive sequence-length band per difficulty. The exact length is rolled per
+ * question (mirrors the worksheet's spread of 3–7 step questions) so a session
+ * varies even though the visible answer space is small.
+ */
+const SEQ_LEN_RANGE: Record<Difficulty, [number, number]> = {
+  easy: [3, 4],
+  normal: [4, 5],
+  hard: [5, 7],
+};
 
 function rollDifficulty(setting: Settings['difficulty'], rng: Rng): Difficulty {
   if (setting === 'mixed') return rng.pick(['easy', 'normal', 'hard'] as const);
   return setting;
+}
+
+/** Roll a sequence length inside the difficulty's band, inclusive of both ends. */
+export function rollSeqLen(difficulty: Difficulty, rng: Rng): number {
+  const [lo, hi] = SEQ_LEN_RANGE[difficulty];
+  return rng.int(lo, hi + 1);
 }
 
 function randomCommands(n: number, rng: Rng): Command[] {
@@ -29,7 +43,9 @@ function randomStart(rng: Rng): Mat3 {
 }
 
 export function generatePuzzle(difficulty: Difficulty, rng: Rng, id: string): Puzzle {
-  const len = SEQ_LEN[difficulty];
+  const len = rollSeqLen(difficulty, rng);
+  // Cosmetic glyph for this question (carried on every cube in the question).
+  const glyph = rng.pick(GLYPHS);
 
   // Resample the sequence until the mark ends on a visible face, so every
   // answer (like the worksheet) actually shows a mark.
@@ -54,7 +70,7 @@ export function generatePuzzle(difficulty: Difficulty, rng: Rng, id: string): Pu
     const { choices, correctIndex } = generateChoices(rng, final, offByOne);
     if (choices.length < 6) continue; // not enough distinct distractors (very rare)
 
-    return { id, initial, commands, steps, choices, correctIndex, difficulty, viewBox: VIEWBOX };
+    return { id, glyph, initial, commands, steps, choices, correctIndex, difficulty, viewBox: VIEWBOX };
   }
 
   // Deterministic fallback (a simple two-turn puzzle) — practically unreachable.
@@ -65,6 +81,7 @@ export function generatePuzzle(difficulty: Difficulty, rng: Rng, id: string): Pu
   const { choices, correctIndex } = generateChoices(rng, final, steps[0]!);
   return {
     id,
+    glyph,
     initial: resolvePlacement(IDENTITY),
     commands,
     steps,

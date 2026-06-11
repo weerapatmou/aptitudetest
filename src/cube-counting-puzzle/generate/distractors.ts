@@ -15,13 +15,16 @@ export function buildOptions(a: Arrangement, rng: Rng): Choice[] {
   const footprint = footprintCubes(a);
   const tiles = faceTiles(a);
 
-  // Priority-ordered distractor pool. First three usable ones are kept.
-  const pool: Candidate[] = [
-    {
-      value: visible,
-      kind: 'visible-only',
-      rationale: 'นับเฉพาะก้อนที่มองเห็น ลืมก้อนที่ซ่อนอยู่ข้างในและข้างหลัง',
-    },
+  // `visible-only` is the signature trap (forgetting hidden support cubes), so
+  // it leads the pool whenever it's usable. The rest of the pool is shuffled so
+  // the wrong-answer set varies from question to question instead of always
+  // landing on the same first-three.
+  const lead: Candidate = {
+    value: visible,
+    kind: 'visible-only',
+    rationale: 'นับเฉพาะก้อนที่มองเห็น ลืมก้อนที่ซ่อนอยู่ข้างในและข้างหลัง',
+  };
+  const rest: Candidate[] = rng.shuffle([
     {
       value: footprint,
       kind: 'footprint-only',
@@ -42,7 +45,13 @@ export function buildOptions(a: Arrangement, rng: Rng): Choice[] {
       kind: 'face-tiles',
       rationale: 'นับจำนวนหน้าสี่เหลี่ยมที่มองเห็น แทนที่จะนับก้อนลูกบาศก์',
     },
-  ];
+    {
+      value: visible + footprint,
+      kind: 'visible-plus-footprint',
+      rationale: 'นับซ้ำ — เอาก้อนที่เห็นบวกกับจำนวนเสา ทำให้เกินจริง',
+    },
+  ]);
+  const pool: Candidate[] = [lead, ...rest];
 
   const used = new Set<number>([total]);
   const distractors: Candidate[] = [];

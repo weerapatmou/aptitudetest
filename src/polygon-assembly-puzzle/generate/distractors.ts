@@ -58,6 +58,19 @@ function applyAngle(piece: ScatteredPiece, rng: Rng): void {
   piece.polygon = newPoly;
 }
 
+/** Rotate the whole piece by a clearly visible angle around its centroid (origin in local coords). */
+function applyRotation(piece: ScatteredPiece, rng: Rng): void {
+  // 25–40°, either direction — large enough that the piece no longer seats in its slot.
+  const deg = rng.range(25, 40) * (rng.bool() ? 1 : -1);
+  const ang = (deg * Math.PI) / 180;
+  const c = Math.cos(ang), s = Math.sin(ang);
+  piece.polygon = piece.polygon.map((p) => ({
+    x: p.x * c - p.y * s,
+    y: p.x * s + p.y * c,
+  }));
+  // assembledRotation stays 0 so the rotated geometry is rendered as-is in its slot.
+}
+
 /** Replace a piece with a different shape (regular polygon) of equivalent area. */
 function applySubstitution(piece: ScatteredPiece, rng: Rng): void {
   const A = polygonArea(piece.polygon);
@@ -110,13 +123,16 @@ export function buildDefective(
     case 'substitution':
       applySubstitution(piece, rng);
       break;
+    case 'rotation-trap':
+      applyRotation(piece, rng);
+      break;
   }
   return clone;
 }
 
 /** Choose 3 UNIQUE distractor defect kinds for the mode and difficulty (4 options total = 1 correct + 3 distractors). */
 export function pickDistractorKinds(mode: Mode, difficulty: Difficulty, rng: Rng): Defect[] {
-  const mirrorPool: Defect[] = ['scale', 'edge-length', 'angle', 'substitution'];
+  const mirrorPool: Defect[] = ['scale', 'edge-length', 'angle', 'substitution', 'rotation-trap'];
   if (mode === 'mirror') {
     if (difficulty === 'easy') {
       // Bias toward obvious defects, but keep all three distinct.

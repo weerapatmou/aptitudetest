@@ -152,9 +152,9 @@ describe('generated puzzle invariants', () => {
 
   it('honours difficulty knobs (block count and stacking height)', () => {
     const ranges: Record<Difficulty, { k: [number, number]; maxLayers: number }> = {
-      easy: { k: [3, 4], maxLayers: 1 },
-      normal: { k: [4, 6], maxLayers: 2 },
-      hard: { k: [6, 9], maxLayers: 3 },
+      easy: { k: [3, 6], maxLayers: 1 },
+      normal: { k: [4, 8], maxLayers: 3 },
+      hard: { k: [6, 12], maxLayers: 4 },
     };
     eachPuzzle((p, d) => {
       const r = ranges[d];

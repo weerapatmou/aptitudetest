@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { generatePuzzle, generateSession } from '../generate';
 import { placementKey } from '../generate/cube';
 import { makeRng } from '@/rotation-puzzle/generate/rng';
+import { GLYPHS } from '../generate/iso';
 import type { Difficulty } from '../types';
 
 describe('flip-box generation', () => {
@@ -29,15 +30,34 @@ describe('flip-box generation', () => {
       expect(p.initial.face).not.toBeNull();
       expect(final.face).not.toBeNull();
       expect(p.steps).toHaveLength(p.commands.length);
+
+      // the cosmetic glyph is one of the known variants
+      expect(GLYPHS).toContain(p.glyph);
     }
   });
 
-  it('scales sequence length with difficulty', () => {
-    const lens: Record<Difficulty, number> = { easy: 3, normal: 4, hard: 6 };
-    (Object.keys(lens) as Difficulty[]).forEach((d) => {
+  it('keeps sequence length inside the per-difficulty band', () => {
+    const bands: Record<Difficulty, [number, number]> = {
+      easy: [3, 4],
+      normal: [4, 5],
+      hard: [5, 7],
+    };
+    (Object.keys(bands) as Difficulty[]).forEach((d) => {
+      const [lo, hi] = bands[d];
       const rng = makeRng(7);
-      const p = generatePuzzle(d, rng, 'x');
-      expect(p.commands).toHaveLength(lens[d]);
+      // Many draws to exercise the band (length is rolled per question).
+      for (let i = 0; i < 40; i++) {
+        const p = generatePuzzle(d, rng, `x-${i}`);
+        expect(p.commands.length).toBeGreaterThanOrEqual(lo);
+        expect(p.commands.length).toBeLessThanOrEqual(hi);
+      }
     });
+  });
+
+  it('varies sequence length within a difficulty band', () => {
+    const rng = makeRng(7);
+    const lens = new Set<number>();
+    for (let i = 0; i < 40; i++) lens.add(generatePuzzle('hard', rng, `h-${i}`).commands.length);
+    expect(lens.size).toBeGreaterThan(1);
   });
 });

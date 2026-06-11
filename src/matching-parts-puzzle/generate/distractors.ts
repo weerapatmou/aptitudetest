@@ -69,7 +69,7 @@ export function buildCorrect(ctx: DistractorCtx): Option {
 }
 
 function buildProportionMismatch(ctx: DistractorCtx): Option | null {
-  const twin = nearTwinShape(ctx.reference.kind);
+  const twin = nearTwinShape(ctx.reference.kind, ctx.rng);
   const cut = cutPolygon(twin.polygon, ctx.strategy, ctx.rng);
   if (!cut) return null;
   const [a, b] = layoutPieces(cut.pieces[0], cut.pieces[1], ctx.rng);

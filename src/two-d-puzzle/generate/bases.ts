@@ -102,6 +102,59 @@ function hexagon(rng: Rng): Polygon {
   return recenter(fitToSize(poly, SIDE));
 }
 
+function octagon(rng: Rng): Polygon {
+  const R = SIDE / 2;
+  // Jitter the cut-corner depth so it ranges from a stubby to a near-regular octagon.
+  const cut = 0.28 + rng.next() * 0.14; // how far each corner is chamfered (0.28–0.42)
+  const flatTop = rng.bool();
+  const theta0 = flatTop ? Math.PI / 8 : 0;
+  const poly: Polygon = [];
+  for (let i = 0; i < 8; i++) {
+    const t = theta0 + (i / 8) * Math.PI * 2;
+    // Push alternate vertices in/out slightly to vary the silhouette a touch.
+    const rad = R * (1 - (i % 2 === 0 ? 0 : cut * 0.12));
+    poly.push({ x: rad * Math.cos(t), y: rad * Math.sin(t) });
+  }
+  return recenter(fitToSize(poly, SIDE));
+}
+
+function rightTrapezoid(rng: Rng): Polygon {
+  // A trapezoid with one vertical (right-angled) side; the slanted side varies.
+  const w = SIDE;
+  const h = SIDE * (0.72 + rng.next() * 0.18);
+  const topFrac = 0.42 + rng.next() * 0.28; // top edge as a share of the bottom
+  const tw = w * topFrac;
+  const flip = rng.bool() ? 1 : -1; // which side carries the right angle
+  const poly: Polygon = [
+    { x: (-w / 2) * flip, y: h / 2 },
+    { x: (w / 2) * flip, y: h / 2 },
+    { x: (w / 2) * flip, y: -h / 2 },
+    { x: (w / 2 - tw) * flip, y: -h / 2 },
+  ];
+  return recenter(fitToSize(poly, SIDE));
+}
+
+function arrow(rng: Rng): Polygon {
+  // A concave block arrow pointing right: rectangular shaft + triangular head.
+  const w = SIDE;
+  const h = SIDE * (0.6 + rng.next() * 0.22);
+  const headFrac = 0.34 + rng.next() * 0.18; // head length as a share of total width
+  const shaftFrac = 0.4 + rng.next() * 0.18; // shaft height as a share of total height
+  const headX = w / 2 - w * headFrac;
+  const sh = (h * shaftFrac) / 2; // half shaft height
+  const hh = h / 2; // half head height (full)
+  const poly: Polygon = [
+    { x: -w / 2, y: -sh }, // shaft top-left
+    { x: headX, y: -sh }, // shaft top-right
+    { x: headX, y: -hh }, // head top corner
+    { x: w / 2, y: 0 }, // tip
+    { x: headX, y: hh }, // head bottom corner
+    { x: headX, y: sh }, // shaft bottom-right
+    { x: -w / 2, y: sh }, // shaft bottom-left
+  ];
+  return recenter(fitToSize(poly, SIDE));
+}
+
 const VARIED: Array<{ make: (rng: Rng) => Polygon; weight: number }> = [
   { make: () => square(), weight: 2 },
   { make: rectangleBase, weight: 2 },
@@ -110,6 +163,9 @@ const VARIED: Array<{ make: (rng: Rng) => Polygon; weight: number }> = [
   { make: trapezoid, weight: 2 },
   { make: pentagonHouse, weight: 2 },
   { make: hexagon, weight: 2 },
+  { make: octagon, weight: 2 },
+  { make: rightTrapezoid, weight: 2 },
+  { make: arrow, weight: 1 },
 ];
 const VARIED_TOTAL = VARIED.reduce((s, b) => s + b.weight, 0);
 

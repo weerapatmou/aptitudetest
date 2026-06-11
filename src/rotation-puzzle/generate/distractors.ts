@@ -12,22 +12,22 @@ import { dist, outerEdgePoly, pointInPolygon, polygonBounds, bboxDiagonal, dista
 import type { Rng } from './rng';
 
 const SIMILAR_KIND_MAP: Record<string, InternalElementKind[]> = {
-  circle: ['hexagon', 'pentagon'],
-  hexagon: ['circle', 'pentagon'],
-  pentagon: ['hexagon', 'circle'],
-  square: ['diamond', 'trapezoid'],
-  diamond: ['square', 'parallelogram'],
-  triangle: ['rightTriangle', 'teardrop'],
-  rightTriangle: ['triangle', 'arrow'],
+  circle: ['hexagon', 'pentagon', 'semicircle'],
+  hexagon: ['circle', 'pentagon', 'square'],
+  pentagon: ['hexagon', 'circle', 'star5'],
+  square: ['diamond', 'trapezoid', 'parallelogram'],
+  diamond: ['square', 'parallelogram', 'triangle'],
+  triangle: ['rightTriangle', 'teardrop', 'diamond'],
+  rightTriangle: ['triangle', 'arrow', 'trapezoid'],
   star5: ['plus', 'pentagon'],
   plus: ['star5', 'square'],
   arrow: ['rightTriangle', 'teardrop'],
   crescent: ['semicircle', 'teardrop'],
-  semicircle: ['crescent', 'teardrop'],
-  teardrop: ['crescent', 'circle'],
+  semicircle: ['crescent', 'teardrop', 'circle'],
+  teardrop: ['crescent', 'circle', 'arrow'],
   lShape: ['plus', 'trapezoid'],
-  trapezoid: ['parallelogram', 'square'],
-  parallelogram: ['diamond', 'trapezoid'],
+  trapezoid: ['parallelogram', 'square', 'rightTriangle'],
+  parallelogram: ['diamond', 'trapezoid', 'square'],
 };
 
 // Distinct visible fill categories. `'none'` is intentionally excluded — it

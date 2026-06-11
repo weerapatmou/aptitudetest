@@ -34,6 +34,9 @@ export const COMMAND_LABEL: Record<Command, string> = {
   'flip-right': 'Flip right',
 };
 
+/** The mark glyph variants the generator can choose from (cosmetic only). */
+export type Glyph = 'arrow-cross' | 'arrow' | 'flag' | 'tee' | 'el';
+
 /** One of the three camera-facing faces of the isometric cube (or hidden). */
 export type Face = 'top' | 'right' | 'left';
 /** In-plane rotation of the mark on its face, in degrees. */
@@ -58,6 +61,8 @@ export type Choice = {
 
 export type Puzzle = {
   id: string;
+  /** Which glyph is drawn for the mark (cosmetic; same on every cube in the question). */
+  glyph: Glyph;
   /** Mark position before any command (always on a visible face). */
   initial: Placement;
   /** The rotation sequence to apply, in order. */

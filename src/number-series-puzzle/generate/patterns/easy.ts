@@ -13,7 +13,7 @@ export function roundDec(n: number, places = 4): number {
 // E1: constant addition, small step
 export const arithAddSmall: PatternGenerator = (rng, length) => {
   const k = rng.int(1, 6); // 1..5
-  const start = rng.int(1, 20);
+  const start = rng.int(1, 40);
   const terms = Array.from({ length }, (_, i) => start + k * i);
   return {
     kind: 'arith-add',
@@ -89,7 +89,7 @@ const geoDiv: PatternGenerator = (rng, length) => {
 };
 
 // E6: multiples of k
-const multiples: PatternGenerator = (rng, length) => {
+export const multiples: PatternGenerator = (rng, length) => {
   const k = rng.int(2, 13);
   const startIdx = rng.int(1, 4);
   const terms = Array.from({ length }, (_, i) => k * (startIdx + i));
@@ -103,8 +103,8 @@ const multiples: PatternGenerator = (rng, length) => {
 };
 
 // E7: counting up by 1
-const counting: PatternGenerator = (rng, length) => {
-  const start = rng.int(1, 50);
+export const counting: PatternGenerator = (rng, length) => {
+  const start = rng.int(1, 80);
   const terms = Array.from({ length }, (_, i) => start + i);
   return {
     kind: 'counting',
@@ -117,9 +117,9 @@ const counting: PatternGenerator = (rng, length) => {
 
 // E8: alternating pair (a, b, a, b, ...)
 const alternatingPair: PatternGenerator = (rng, length) => {
-  const a = rng.int(1, 30);
-  let b = rng.int(1, 30);
-  if (a === b) b = (b + 3) % 31 || 1;
+  const a = rng.int(1, 50);
+  let b = rng.int(1, 50);
+  if (a === b) b = (b + 3) % 51 || 1;
   const terms = Array.from({ length }, (_, i) => (i % 2 === 0 ? a : b));
   return {
     kind: 'alternating-pair',

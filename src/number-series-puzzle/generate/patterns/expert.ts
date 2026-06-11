@@ -393,7 +393,7 @@ const mulBy2nSub2n: PatternGenerator = (rng, length) => {
 };
 
 // X24: each term is the sum of all previous terms (seed twice)
-const sumOfAllPrevious: PatternGenerator = (rng, length) => {
+export const sumOfAllPrevious: PatternGenerator = (rng, length) => {
   const seed = rng.int(2, 6);
   const terms: number[] = [seed];
   for (let i = 1; i < length; i++) {

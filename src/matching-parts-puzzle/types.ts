@@ -8,7 +8,9 @@ export type ReferenceShapeKind =
   | 'circle'
   | 'oval'
   | 'kite'
-  | 'triangle';
+  | 'triangle'
+  | 'pentagon'
+  | 'parallelogram';
 
 export const REFERENCE_KINDS: readonly ReferenceShapeKind[] = [
   'hexagon',
@@ -17,6 +19,8 @@ export const REFERENCE_KINDS: readonly ReferenceShapeKind[] = [
   'oval',
   'kite',
   'triangle',
+  'pentagon',
+  'parallelogram',
 ] as const;
 
 export type ReferenceShape = {

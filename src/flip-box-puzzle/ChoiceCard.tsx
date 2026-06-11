@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import type { Choice } from './types';
+import type { Choice, Glyph } from './types';
 import { CubeFigure } from './CubeFigure';
 
 type Props = {
   choice: Choice;
+  glyph: Glyph;
   letter: string;
   index: number;
   selected: boolean;
@@ -14,7 +15,7 @@ type Props = {
   reduced: boolean;
 };
 
-export function ChoiceCard({ choice, letter, index, selected, revealed, viewBox, onSelect, reduced }: Props) {
+export function ChoiceCard({ choice, glyph, letter, index, selected, revealed, viewBox, onSelect, reduced }: Props) {
   const correctPick = revealed && choice.isCorrect && selected;
   const wrongPick = revealed && !choice.isCorrect && selected;
   const missed = revealed && choice.isCorrect && !selected;
@@ -57,6 +58,7 @@ export function ChoiceCard({ choice, letter, index, selected, revealed, viewBox,
     <div className="w-full aspect-square flex items-center justify-center">
       <CubeFigure
         placement={choice.placement}
+        glyph={glyph}
         viewBox={viewBox}
         className="w-full h-full"
         ariaLabel={`Choice ${letter}`}

@@ -1,9 +1,9 @@
-import type { Placement } from './types';
+import type { Glyph, Placement } from './types';
 import {
   CUBE_FACES,
+  GLYPH_STROKES,
   HIDDEN_EDGES,
   markMapper,
-  MARK_STROKES,
   polygonPath,
   project,
   VIEWBOX,
@@ -12,6 +12,8 @@ import {
 
 type Props = {
   placement: Placement;
+  /** Which glyph to draw for the mark (defaults to the asymmetric arrow-cross). */
+  glyph?: Glyph;
   viewBox?: string;
   className?: string;
   ariaLabel?: string;
@@ -28,12 +30,13 @@ const FACE_FILL: Record<'top' | 'right' | 'left', string> = {
 /** A single isometric cube with an optional oriented mark on a visible face. */
 export function CubeFigure({
   placement,
+  glyph = 'arrow-cross',
   viewBox = VIEWBOX,
   className,
   ariaLabel,
   markColor = 'var(--accent)',
 }: Props) {
-  const mark = placement.face ? buildMark(placement.face, placement.angle) : null;
+  const mark = placement.face ? buildMark(glyph, placement.face, placement.angle) : null;
   // Vertical axis tick, like the worksheet's dashed centre line.
   const axisTop = project(0.5, 0.5, 1);
 
@@ -95,7 +98,7 @@ export function CubeFigure({
   );
 }
 
-function buildMark(face: 'top' | 'right' | 'left', angle: Placement['angle']): Pt[][] {
+function buildMark(glyph: Glyph, face: 'top' | 'right' | 'left', angle: Placement['angle']): Pt[][] {
   const map = markMapper(face, angle);
-  return MARK_STROKES.map((stroke) => stroke.map(([gx, gy]) => map(gx, gy)));
+  return GLYPH_STROKES[glyph].map((stroke) => stroke.map(([gx, gy]) => map(gx, gy)));
 }

@@ -11,6 +11,8 @@ const OUTER_KINDS = [
   'irregularHexagon',
   'kite',
   'chevron',
+  'teardrop',
+  'gear',
 ] as const;
 
 export type OuterKind = (typeof OUTER_KINDS)[number];
@@ -43,6 +45,8 @@ export function generateOuter(kind: OuterKind, rng: Rng): OuterShape {
     case 'irregularHexagon':   return generateIrregularHexagon(rng);
     case 'kite':               return generateKite(rng);
     case 'chevron':            return generateChevron(rng);
+    case 'teardrop':           return generateTeardrop(rng);
+    case 'gear':               return generateGear(rng);
   }
 }
 
@@ -211,6 +215,71 @@ function generateChevron(rng: Rng): OuterShape {
   const c = Math.cos(ang), s = Math.sin(ang);
   const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
   return { kind: 'chevron', vertices };
+}
+
+function generateTeardrop(rng: Rng): OuterShape {
+  // A rounded blob tapering to a point — a teardrop. We skew the bulge to one
+  // side so it is chiral (not mirror-symmetric about its own axis), then rotate.
+  const tip = { x: 82 + rng.range(-6, 6), y: 0 };
+  const bulgeR = 50 + rng.range(-4, 6);
+  // Center of the round body, offset back from the tip.
+  const cx = -22 + rng.range(-4, 4);
+  // Skew factors: top and bottom halves of the bulge get different radii so the
+  // teardrop leans, guaranteeing asymmetry across every mirror axis.
+  const topScale = 1.0 + rng.range(0.18, 0.38);
+  const botScale = 1.0 - rng.range(0.12, 0.28);
+  const pts: Pt[] = [tip];
+  // Walk the round body around the back of the bulge, from the lower side near
+  // the tip, around through -x, back up to the upper side near the tip.
+  const steps = 14;
+  const startA = 0.45 * Math.PI;  // lower-front of the body
+  const endA = 1.55 * Math.PI;    // upper-front of the body (sweeping through π)
+  for (let i = 0; i <= steps; i++) {
+    const t = startA + ((endA - startA) * i) / steps;
+    const scale = Math.sin(t) >= 0 ? topScale : botScale;
+    pts.push({
+      x: cx + bulgeR * Math.cos(t),
+      y: bulgeR * scale * Math.sin(t),
+    });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'teardrop', vertices };
+}
+
+function generateGear(rng: Rng): OuterShape {
+  // A toothed wheel. A perfectly regular gear is rotationally symmetric, so we
+  // deliberately break it: a prime-ish tooth count plus one enlarged tooth and
+  // one missing tooth make it chiral and free of clean mirror axes.
+  const teeth = rng.pick([7, 9, 11]);
+  const inner = 42 + rng.range(-4, 4);
+  const outer = 70 + rng.range(-4, 4);
+  const skipTooth = rng.int(0, teeth);     // this tooth is dropped (flat gap)
+  const bigTooth = (skipTooth + rng.int(2, teeth - 1)) % teeth; // this one juts out
+  const pts: Pt[] = [];
+  const per = (Math.PI * 2) / teeth;
+  // Small phase jitter on tooth width to remove residual reflection symmetry.
+  const gap = per * (0.42 + rng.range(-0.05, 0.05));
+  for (let i = 0; i < teeth; i++) {
+    const base = i * per;
+    const tipR = i === bigTooth ? outer + 16 : outer;
+    if (i === skipTooth) {
+      // Flat gap: stay on the inner circle across this slot.
+      pts.push({ x: inner * Math.cos(base - gap / 2), y: inner * Math.sin(base - gap / 2) });
+      pts.push({ x: inner * Math.cos(base + per - gap / 2), y: inner * Math.sin(base + per - gap / 2) });
+      continue;
+    }
+    // valley -> rising edge -> tooth top (two corners) -> falling edge -> valley
+    pts.push({ x: inner * Math.cos(base - gap / 2), y: inner * Math.sin(base - gap / 2) });
+    pts.push({ x: tipR * Math.cos(base - gap / 4), y: tipR * Math.sin(base - gap / 4) });
+    pts.push({ x: tipR * Math.cos(base + gap / 4), y: tipR * Math.sin(base + gap / 4) });
+    pts.push({ x: inner * Math.cos(base + gap / 2), y: inner * Math.sin(base + gap / 2) });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'gear', vertices };
 }
 
 function fallbackShape(): OuterShape {

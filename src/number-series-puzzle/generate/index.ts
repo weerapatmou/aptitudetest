@@ -2,10 +2,10 @@ import type { Difficulty, PatternKind, SeriesPattern, SeriesQuestion, SeriesSett
 import { defaultRng, makeRng } from './rng';
 import type { Rng } from './rng';
 import { buildOptions } from './distractors';
-import { EASY_GENERATORS, arithAddSmall } from './patterns/easy';
-import { MEDIUM_GENERATORS, fibonacci } from './patterns/medium';
-import { HARD_GENERATORS, lucas } from './patterns/hard';
-import { EXPERT_GENERATORS, padovan } from './patterns/expert';
+import { EASY_GENERATORS, arithAddSmall, multiples, counting } from './patterns/easy';
+import { MEDIUM_GENERATORS, fibonacci, oddStepAdd, triangular } from './patterns/medium';
+import { HARD_GENERATORS, lucas, pell, recurrenceWithPosition } from './patterns/hard';
+import { EXPERT_GENERATORS, padovan, sumOfAllPrevious } from './patterns/expert';
 import type { PatternGenerator } from './patterns/easy';
 import { isMentallyTractable } from './tractability';
 
@@ -18,12 +18,14 @@ const GENERATORS_BY_DIFFICULTY: Record<Difficulty, PatternGenerator[]> = {
 
 // If many draws in a row are too hard to solve mentally, fall back to a
 // guaranteed step-derivable generator for the tier so a question is always
-// produced. Each generator tags itself with the matching difficulty.
-const SAFE_FALLBACK_BY_DIFFICULTY: Record<Difficulty, PatternGenerator> = {
-  easy: arithAddSmall,
-  medium: fibonacci,
-  hard: lucas,
-  expert: padovan,
+// produced. Each generator tags itself with the matching difficulty. A few
+// alternates per tier (all known-tractable) are kept so the rare fallback isn't
+// always the identical sequence; one is picked via the rng to stay deterministic.
+const SAFE_FALLBACK_BY_DIFFICULTY: Record<Difficulty, PatternGenerator[]> = {
+  easy: [arithAddSmall, multiples, counting],
+  medium: [fibonacci, oddStepAdd, triangular],
+  hard: [lucas, pell, recurrenceWithPosition],
+  expert: [padovan, sumOfAllPrevious],
 };
 
 const MAX_TRACTABILITY_ATTEMPTS = 16;
@@ -139,7 +141,15 @@ export function generateSeriesQuestion(
     pattern = drawPattern(generators, rng, minLen, maxLen);
   }
   if (!isMentallyTractable(pattern)) {
-    pattern = SAFE_FALLBACK_BY_DIFFICULTY[effective](rng, rng.int(minLen, maxLen + 1));
+    const fallbacks = SAFE_FALLBACK_BY_DIFFICULTY[effective];
+    const fallbackLen = rng.int(minLen, maxLen + 1);
+    const chosen = rng.pick(fallbacks);
+    const candidate = chosen(rng, fallbackLen);
+    // All alternates are known-tractable, but guard defensively: if a chosen
+    // alternate ever fails the gate, drop to the tier's primary (first) generator.
+    pattern = isMentallyTractable(candidate)
+      ? candidate
+      : fallbacks[0]!(rng, fallbackLen);
   }
   const effectiveLength = pattern.terms.length;
 

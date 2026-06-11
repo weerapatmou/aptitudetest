@@ -9,6 +9,7 @@ import { HowToPlay } from './HowToPlay';
 import { generateSession } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
+import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [10, 15, 20, 30] as const;
@@ -19,13 +20,12 @@ type Props = {
   onHome?: () => void;
 };
 
-const randomSeed = () => (Math.random() * 1e9) | 0;
-
 export function FindingRotatedShapesPuzzle({ onHome }: Props = {}) {
   const [settings, setSettings] = useLocalStorage<Settings>('findingRotatedShapes:settings', {
     count: 10,
   });
-  const [seed, setSeed] = useLocalStorage<number>('findingRotatedShapes:lastSeed', randomSeed());
+  const seedState = useSeed('findingRotatedShapes:lastSeed');
+  const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
@@ -38,20 +38,25 @@ export function FindingRotatedShapesPuzzle({ onHome }: Props = {}) {
 
   const launch = useCallback(
     (useSeed: number) => {
-      setSeed(useSeed);
+      seedState.commit(useSeed);
       setPuzzles(generateSession(settings, useSeed));
       setAnswers({});
       setSubmitted(false);
       resetTimer();
       setPhase('sheet');
     },
-    [settings, resetTimer, setSeed],
+    [settings, resetTimer, seedState],
   );
 
   // A fresh set of brand-new shape patterns (new random seed each time).
-  const startSession = useCallback(() => launch(randomSeed()), [launch]);
+  const startSession = useCallback(() => launch(seedState.fresh()), [launch, seedState]);
   // The exact same set again, rebuilt deterministically from the stored seed.
   const replaySet = useCallback(() => launch(seed), [launch, seed]);
+  // Reproduce an exact set from a typed/pasted seed.
+  const applyTypedSeed = useCallback(() => {
+    const n = seedState.applyDraft();
+    if (n !== null) launch(n);
+  }, [seedState, launch]);
 
   const selectChoice = useCallback(
     (qIdx: number, choiceIdx: number) => {
@@ -146,7 +151,14 @@ export function FindingRotatedShapesPuzzle({ onHome }: Props = {}) {
 
       <main className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10">
         {phase === 'setup' && (
-          <SetupScreen settings={settings} onChange={setSettings} onStart={startSession} />
+          <SetupScreen
+            settings={settings}
+            onChange={setSettings}
+            onStart={startSession}
+            seedState={seedState}
+            onApplySeed={applyTypedSeed}
+            onReplay={replaySet}
+          />
         )}
 
         {phase === 'sheet' && (
@@ -187,10 +199,16 @@ function SetupScreen({
   settings,
   onChange,
   onStart,
+  seedState,
+  onApplySeed,
+  onReplay,
 }: {
   settings: Settings;
   onChange: (s: Settings) => void;
   onStart: () => void;
+  seedState: UseSeed;
+  onApplySeed: () => void;
+  onReplay: () => void;
 }) {
   return (
     <div className="max-w-xl mx-auto rounded-2xl border border-border bg-bg-card p-6 md:p-8">
@@ -241,6 +259,21 @@ function SetupScreen({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+          Seed <span className="text-text-dim/50 normal-case tracking-normal">— paste one to replay an exact set</span>
+        </label>
+        <SeedBar
+          seed={seedState.seed}
+          draft={seedState.draft}
+          draftValid={seedState.draftValid}
+          onDraftChange={seedState.setDraft}
+          onApply={onApplySeed}
+          onNew={onStart}
+          onReplay={onReplay}
+        />
       </div>
 
       <button

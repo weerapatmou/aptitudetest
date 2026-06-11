@@ -12,6 +12,7 @@ import { HowToPlay } from './HowToPlay';
 import { generateSession } from './generate';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
+import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [5, 10, 20, 50] as const;
@@ -39,6 +40,8 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
   });
 
   const mode: PracticeMode = settings.mode ?? 'sequential';
+  const seedState = useSeed('approxCalc:lastSeed');
+  const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [questions, setQuestions] = useState<ApproxQuestion[]>([]);
@@ -59,22 +62,35 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
 
   const current = questions[currentIdx] ?? null;
 
-  const startSession = useCallback(() => {
-    const generated = generateSession(settings);
-    setQuestions(generated);
-    setResults([]);
-    resetTimer();
-    if (mode === 'sheet') {
-      setAnswers({});
-      setSheetSubmitted(false);
-      setPhase('sheet');
-    } else {
-      setCurrentIdx(0);
-      setPick(null);
-      setFocused(0);
-      setPhase('answering');
-    }
-  }, [settings, mode, resetTimer]);
+  const launch = useCallback(
+    (useSeed: number) => {
+      seedState.commit(useSeed);
+      setQuestions(generateSession(settings, useSeed));
+      setResults([]);
+      resetTimer();
+      if (mode === 'sheet') {
+        setAnswers({});
+        setSheetSubmitted(false);
+        setPhase('sheet');
+      } else {
+        setCurrentIdx(0);
+        setPick(null);
+        setFocused(0);
+        setPhase('answering');
+      }
+    },
+    [settings, mode, resetTimer, seedState],
+  );
+
+  // A fresh set of brand-new problems (new random seed each time).
+  const startSession = useCallback(() => launch(seedState.fresh()), [launch, seedState]);
+  // The exact same set again, rebuilt deterministically from the stored seed.
+  const replaySet = useCallback(() => launch(seed), [launch, seed]);
+  // Reproduce an exact set from a typed/pasted seed.
+  const applyTypedSeed = useCallback(() => {
+    const n = seedState.applyDraft();
+    if (n !== null) launch(n);
+  }, [seedState, launch]);
 
   const handleSheetPick = useCallback(
     (qIdx: number, optIdx: number) => {
@@ -238,7 +254,14 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
 
       <main className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10">
         {phase === 'setup' && (
-          <SetupScreen settings={settings} onChange={setSettings} onStart={startSession} />
+          <SetupScreen
+            settings={settings}
+            onChange={setSettings}
+            onStart={startSession}
+            seedState={seedState}
+            onApplySeed={applyTypedSeed}
+            onReplay={replaySet}
+          />
         )}
 
         {(phase === 'answering' || phase === 'revealed') && current && (
@@ -299,6 +322,7 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
             questions={questions}
             answers={answers}
             submitted={sheetSubmitted}
+            seed={seed}
             reduced={!!reduced}
             onPick={handleSheetPick}
             onSubmit={submitSheet}
@@ -311,6 +335,8 @@ export function ApproximateCalculationPuzzle({ onHome }: Props = {}) {
           <SummaryScreen
             results={results}
             elapsedMs={elapsed}
+            seed={seed}
+            onReplay={replaySet}
             onAgain={() => {
               setPhase('setup');
             }}
@@ -327,10 +353,16 @@ function SetupScreen({
   settings,
   onChange,
   onStart,
+  seedState,
+  onApplySeed,
+  onReplay,
 }: {
   settings: ApproxSettings;
   onChange: (s: ApproxSettings) => void;
   onStart: () => void;
+  seedState: UseSeed;
+  onApplySeed: () => void;
+  onReplay: () => void;
 }) {
   const modes: Array<{ value: PracticeMode; label: string; hint: string }> = [
     { value: 'sequential', label: 'One at a time', hint: 'Answer → instant feedback → next.' },
@@ -417,6 +449,21 @@ function SetupScreen({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+          Seed <span className="text-text-dim/50 normal-case tracking-normal">— paste one to replay an exact set</span>
+        </label>
+        <SeedBar
+          seed={seedState.seed}
+          draft={seedState.draft}
+          draftValid={seedState.draftValid}
+          onDraftChange={seedState.setDraft}
+          onApply={onApplySeed}
+          onNew={onStart}
+          onReplay={onReplay}
+        />
       </div>
 
       <button
@@ -611,6 +658,7 @@ function SheetScreen({
   questions,
   answers,
   submitted,
+  seed,
   reduced,
   onPick,
   onSubmit,
@@ -620,6 +668,7 @@ function SheetScreen({
   questions: ApproxQuestion[];
   answers: Record<number, number>;
   submitted: boolean;
+  seed: number;
   reduced: boolean;
   onPick: (qIdx: number, optIdx: number) => void;
   onSubmit: () => void;
@@ -637,6 +686,9 @@ function SheetScreen({
 
   return (
     <>
+      <div className="mb-6 font-mono text-[11px] uppercase tracking-wider text-text-dim/70">
+        Seed <span className="text-text-dim">#{seed}</span>
+      </div>
       <div className="flex flex-col gap-10 pb-28">
         {questions.map((q, i) => {
           const picked = answers[i];
@@ -721,10 +773,14 @@ function SheetScreen({
 function SummaryScreen({
   results,
   elapsedMs,
+  seed,
+  onReplay,
   onAgain,
 }: {
   results: SessionResult[];
   elapsedMs: number;
+  seed: number;
+  onReplay: () => void;
   onAgain: () => void;
 }) {
   const total = results.length;
@@ -770,12 +826,25 @@ function SummaryScreen({
         </div>
       </div>
 
-      <button
-        onClick={onAgain}
-        className="w-full px-4 py-3 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-sm font-semibold hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
-      >
-        New session
-      </button>
+      <div className="mb-5 font-mono text-[11px] uppercase tracking-wider text-text-dim/70">
+        Seed <span className="text-text-dim">#{seed}</span>{' '}
+        <span className="text-text-dim/50">— replay to retry this exact set</span>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={onReplay}
+          className="sm:w-auto px-4 py-3 rounded-xl border border-accent/40 text-accent hover:bg-accent/10 font-mono uppercase tracking-wider text-sm transition"
+        >
+          ⟳ Replay this set
+        </button>
+        <button
+          onClick={onAgain}
+          className="flex-1 px-4 py-3 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-sm font-semibold hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
+        >
+          New session
+        </button>
+      </div>
 
       <div className="mt-6">
         <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim mb-2">

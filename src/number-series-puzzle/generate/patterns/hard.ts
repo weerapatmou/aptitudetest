@@ -104,7 +104,7 @@ export const lucas: PatternGenerator = (_rng, length) => {
 };
 
 // H10: Pell numbers aₙ = 2aₙ₋₁ + aₙ₋₂, seeds 0, 1
-const pell: PatternGenerator = (_rng, length) => {
+export const pell: PatternGenerator = (_rng, length) => {
   const terms: number[] = [0, 1];
   for (let i = 2; i < length; i++) terms.push(2 * terms[i - 1]! + terms[i - 2]!);
   return {
@@ -117,7 +117,7 @@ const pell: PatternGenerator = (_rng, length) => {
 };
 
 // H12: aₙ₊₁ = 2·aₙ + n
-const recurrenceWithPosition: PatternGenerator = (rng, length) => {
+export const recurrenceWithPosition: PatternGenerator = (rng, length) => {
   const start = rng.int(1, 3);
   const terms: number[] = [start];
   for (let i = 1; i < length; i++) terms.push(2 * terms[i - 1]! + (i - 1));

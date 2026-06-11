@@ -20,6 +20,7 @@ export type DistractorKind =
   | 'moved-block' // one cell relocated → a different shape
   | 'added-block' // one extra cell → a different shape
   | 'removed-block' // one cell fewer → a different shape
+  | 'swap-two-blocks' // two cells relocated → same count, different shape
   | 'stretched'; // a run lengthened / footprint altered → wrong proportions
 
 export const DISTRACTOR_EXPLANATION: Record<Exclude<DistractorKind, 'correct'>, string> = {
@@ -27,6 +28,7 @@ export const DISTRACTOR_EXPLANATION: Record<Exclude<DistractorKind, 'correct'>, 
   'moved-block': 'one block sits in a different place — a different shape, not a rotation.',
   'added-block': 'it has an extra block — a different shape, not a rotation.',
   'removed-block': 'it is missing a block — a different shape, not a rotation.',
+  'swap-two-blocks': 'two blocks have shifted to new places — a different shape, not a rotation.',
   stretched: 'its proportions are off — one run is the wrong length.',
 };
 

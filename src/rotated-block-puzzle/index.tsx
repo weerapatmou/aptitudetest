@@ -13,6 +13,7 @@ import { generateSession } from './generate';
 import { sharedViewBox3D } from './generate/render3d';
 import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
+import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [10, 15, 20, 30] as const;
@@ -28,6 +29,8 @@ export function RotatedBlockPuzzle({ onHome }: Props = {}) {
     count: 15,
     difficulty: 'mixed',
   });
+  const seedState = useSeed('rotatedBlock:lastSeed');
+  const seed = seedState.seed;
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
@@ -39,13 +42,27 @@ export function RotatedBlockPuzzle({ onHome }: Props = {}) {
 
   const { elapsed, reset: resetTimer } = useTimer(phase === 'sheet' && !submitted);
 
-  const startSession = useCallback(() => {
-    setPuzzles(generateSession(settings));
-    setAnswers({});
-    setSubmitted(false);
-    resetTimer();
-    setPhase('sheet');
-  }, [settings, resetTimer]);
+  const launch = useCallback(
+    (useSeed: number) => {
+      seedState.commit(useSeed);
+      setPuzzles(generateSession(settings, useSeed));
+      setAnswers({});
+      setSubmitted(false);
+      resetTimer();
+      setPhase('sheet');
+    },
+    [settings, resetTimer, seedState],
+  );
+
+  // A fresh set of brand-new puzzles (new random seed each time).
+  const startSession = useCallback(() => launch(seedState.fresh()), [launch, seedState]);
+  // The exact same set again, rebuilt deterministically from the stored seed.
+  const replaySet = useCallback(() => launch(seed), [launch, seed]);
+  // Reproduce an exact set from a typed/pasted seed.
+  const applyTypedSeed = useCallback(() => {
+    const n = seedState.applyDraft();
+    if (n !== null) launch(n);
+  }, [seedState, launch]);
 
   const selectChoice = useCallback(
     (qIdx: number, choiceIdx: number) => {
@@ -144,7 +161,14 @@ export function RotatedBlockPuzzle({ onHome }: Props = {}) {
 
       <main className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10">
         {phase === 'setup' && (
-          <SetupScreen settings={settings} onChange={setSettings} onStart={startSession} />
+          <SetupScreen
+            settings={settings}
+            onChange={setSettings}
+            onStart={startSession}
+            seedState={seedState}
+            onApplySeed={applyTypedSeed}
+            onReplay={replaySet}
+          />
         )}
 
         {phase === 'sheet' && (
@@ -155,6 +179,7 @@ export function RotatedBlockPuzzle({ onHome }: Props = {}) {
             answeredCount={answeredCount}
             score={score}
             total={total}
+            seed={seed}
             reduced={!!reduced}
             onSelect={selectChoice}
             onSubmit={submit}
@@ -168,7 +193,9 @@ export function RotatedBlockPuzzle({ onHome }: Props = {}) {
           <SummaryScreen
             results={results}
             elapsedMs={elapsed}
+            seed={seed}
             onBack={() => setPhase('sheet')}
+            onReplay={replaySet}
             onAgain={() => setPhase('setup')}
           />
         )}
@@ -183,10 +210,16 @@ function SetupScreen({
   settings,
   onChange,
   onStart,
+  seedState,
+  onApplySeed,
+  onReplay,
 }: {
   settings: Settings;
   onChange: (s: Settings) => void;
   onStart: () => void;
+  seedState: UseSeed;
+  onApplySeed: () => void;
+  onReplay: () => void;
 }) {
   const difficulties: Array<{ value: DifficultyOrMixed; label: string }> = [
     { value: 'easy', label: 'Easy' },
@@ -278,6 +311,21 @@ function SetupScreen({
         </div>
       </div>
 
+      <div className="mt-6">
+        <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+          Seed <span className="text-text-dim/50 normal-case tracking-normal">— paste one to replay an exact set</span>
+        </label>
+        <SeedBar
+          seed={seedState.seed}
+          draft={seedState.draft}
+          draftValid={seedState.draftValid}
+          onDraftChange={seedState.setDraft}
+          onApply={onApplySeed}
+          onNew={onStart}
+          onReplay={onReplay}
+        />
+      </div>
+
       <button
         onClick={onStart}
         className="mt-7 w-full px-4 py-3 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-sm font-semibold hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
@@ -297,6 +345,7 @@ function SheetScreen({
   answeredCount,
   score,
   total,
+  seed,
   reduced,
   onSelect,
   onSubmit,
@@ -310,6 +359,7 @@ function SheetScreen({
   answeredCount: number;
   score: number;
   total: number;
+  seed: number;
   reduced: boolean;
   onSelect: (qIdx: number, choiceIdx: number) => void;
   onSubmit: () => void;
@@ -322,6 +372,9 @@ function SheetScreen({
 
   return (
     <>
+      <div className="mb-6 font-mono text-[11px] uppercase tracking-wider text-text-dim/70">
+        Seed <span className="text-text-dim">#{seed}</span>
+      </div>
       <div className="flex flex-col gap-12 pb-28">
         {results.map((r, i) => {
           const selected = answers[i] ?? null;
@@ -515,12 +568,16 @@ function RevealPanel({ result, onInspect }: { result: SheetResult; onInspect: ()
 function SummaryScreen({
   results,
   elapsedMs,
+  seed,
   onBack,
+  onReplay,
   onAgain,
 }: {
   results: SheetResult[];
   elapsedMs: number;
+  seed: number;
   onBack: () => void;
+  onReplay: () => void;
   onAgain: () => void;
 }) {
   const total = results.length;
@@ -601,12 +658,23 @@ function SummaryScreen({
         )}
       </div>
 
+      <div className="mb-6 font-mono text-[11px] uppercase tracking-wider text-text-dim/70">
+        Seed <span className="text-text-dim">#{seed}</span>{' '}
+        <span className="text-text-dim/50">— replay to retry this exact set</span>
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={onBack}
           className="sm:w-auto px-4 py-3 rounded-xl border border-border text-text-dim hover:text-text hover:bg-bg-card-hover font-mono uppercase tracking-wider text-sm transition"
         >
           ← Review answers
+        </button>
+        <button
+          onClick={onReplay}
+          className="sm:w-auto px-4 py-3 rounded-xl border border-accent/40 text-accent hover:bg-accent/10 font-mono uppercase tracking-wider text-sm transition"
+        >
+          ⟳ Replay this set
         </button>
         <button
           onClick={onAgain}

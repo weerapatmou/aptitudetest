@@ -19,10 +19,10 @@ export type GenerateOptions = {
 };
 
 const KIND_WEIGHTS: Record<Difficulty, Partial<Record<ReferenceShapeKind, number>>> = {
-  easy:   { hexagon: 3, square: 3, triangle: 2, circle: 1, oval: 1, kite: 1 },
-  medium: { hexagon: 2, square: 2, triangle: 2, circle: 2, oval: 2, kite: 2 },
-  hard:   { hexagon: 2, square: 2, triangle: 2, circle: 2, oval: 2, kite: 2 },
-  expert: { hexagon: 1, square: 1, triangle: 2, circle: 2, oval: 2, kite: 3 },
+  easy:   { hexagon: 3, square: 3, triangle: 2, circle: 1, oval: 1, kite: 1, pentagon: 1, parallelogram: 2 },
+  medium: { hexagon: 2, square: 2, triangle: 2, circle: 2, oval: 2, kite: 2, pentagon: 2, parallelogram: 2 },
+  hard:   { hexagon: 2, square: 2, triangle: 2, circle: 2, oval: 2, kite: 2, pentagon: 2, parallelogram: 2 },
+  expert: { hexagon: 1, square: 1, triangle: 2, circle: 2, oval: 2, kite: 3, pentagon: 2, parallelogram: 2 },
 };
 
 function pickReferenceKind(difficulty: Difficulty, rng: Rng): ReferenceShapeKind {
@@ -52,7 +52,7 @@ export function generateMatchingPuzzle(
 
   for (let attempt = 0; attempt < 30; attempt++) {
     const kind = pickReferenceKind(difficulty, rng);
-    const reference: ReferenceShape = generateReferenceShape(kind);
+    const reference: ReferenceShape = generateReferenceShape(kind, rng);
     const strategy = strategyFor(difficulty, rng);
 
     const cut = cutPolygon(reference.polygon, strategy, rng);

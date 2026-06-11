@@ -19,11 +19,21 @@ export function fullyVisibleOrientations(solid: Polycube): Polycube[] {
 
 type SizeSpec = { cells: number; maxDim: number };
 
-const SPEC: Record<Difficulty, SizeSpec> = {
-  easy: { cells: 4, maxDim: 3 },
-  normal: { cells: 5, maxDim: 3 },
-  hard: { cells: 6, maxDim: 3 },
-};
+/**
+ * Per-difficulty size. `hard` rolls a range so the shape space is larger:
+ * 6–7 cells in a cube up to 4 wide. The larger/denser shapes hide more cubes,
+ * so the puzzle assembler's fully-visible + retry-budget passes do the filtering.
+ */
+function sizeSpec(difficulty: Difficulty, rng: Rng): SizeSpec {
+  switch (difficulty) {
+    case 'easy':
+      return { cells: 4, maxDim: 3 };
+    case 'normal':
+      return { cells: 5, maxDim: 3 };
+    case 'hard':
+      return { cells: rng.pick([6, 7]), maxDim: rng.pick([3, 4]) };
+  }
+}
 
 const OFFSETS: Cell[] = [
   { x: 1, y: 0, z: 0 },
@@ -79,8 +89,8 @@ function grow(rng: Rng, count: number, maxDim: number): Polycube | null {
  * that the correct rotated choice is unambiguous.
  */
 export function generateBase(difficulty: Difficulty, rng: Rng): Polycube {
-  const { cells, maxDim } = SPEC[difficulty];
   for (let i = 0; i < 300; i++) {
+    const { cells, maxDim } = sizeSpec(difficulty, rng);
     const solid = grow(rng, cells, maxDim);
     if (!solid) continue;
     // Require some height variation so it reads as a 3D block, not a flat tile.

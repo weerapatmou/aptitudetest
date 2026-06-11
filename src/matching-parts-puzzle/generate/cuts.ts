@@ -142,7 +142,7 @@ export function pickInteriorBendPoint(
   b: Pt,
   rng: Rng,
   minOffset = 12,
-  maxOffset = 26,
+  maxOffset = 34,
 ): Pt | null {
   const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const dx = b.x - a.x;
@@ -156,6 +156,42 @@ export function pickInteriorBendPoint(
     const off = minOffset + (maxOffset - minOffset) * rng.next();
     const pt: Pt = { x: mid.x + nx * off * sign, y: mid.y + ny * off * sign };
     if (pointInPolygon(pt, poly)) return pt;
+  }
+  return null;
+}
+
+/**
+ * Pick two interior bend points at ~1/3 and ~2/3 along the chord, each displaced
+ * perpendicular to the chord (same side) by [minOffset, maxOffset]. Yields a
+ * shallow zig-zag cut. Returns null if either point lands outside `poly`.
+ */
+export function pickTwoInteriorBendPoints(
+  poly: Polygon,
+  a: Pt,
+  b: Pt,
+  rng: Rng,
+  minOffset = 12,
+  maxOffset = 30,
+): Pt[] | null {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-6) return null;
+  const nx = -dy / len;
+  const ny = dx / len;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const sign = rng.bool() ? 1 : -1;
+    const off1 = minOffset + (maxOffset - minOffset) * rng.next();
+    const off2 = minOffset + (maxOffset - minOffset) * rng.next();
+    const p1: Pt = {
+      x: a.x + dx / 3 + nx * off1 * sign,
+      y: a.y + dy / 3 + ny * off1 * sign,
+    };
+    const p2: Pt = {
+      x: a.x + (2 * dx) / 3 + nx * off2 * sign,
+      y: a.y + (2 * dy) / 3 + ny * off2 * sign,
+    };
+    if (pointInPolygon(p1, poly) && pointInPolygon(p2, poly)) return [p1, p2];
   }
   return null;
 }
@@ -183,13 +219,20 @@ export function cutPolygon(
       };
     }
 
-    const bend = pickInteriorBendPoint(poly, b1.pt, b2.pt, rng);
-    if (!bend) continue;
-    const pieces = splitPolygonByPolyline(poly, b1, b2, [bend]);
+    // ~35% of polyline cuts get a second bend for a more interesting zig-zag.
+    const bends =
+      rng.next() < 0.35
+        ? pickTwoInteriorBendPoints(poly, b1.pt, b2.pt, rng)
+        : (() => {
+            const bend = pickInteriorBendPoint(poly, b1.pt, b2.pt, rng);
+            return bend ? [bend] : null;
+          })();
+    if (!bends) continue;
+    const pieces = splitPolygonByPolyline(poly, b1, b2, bends);
     if (!piecesAreValid(pieces)) continue;
     return {
       pieces,
-      cut: { strategy, bp1: b1, bp2: b2, cutPath: [b1.pt, bend, b2.pt] },
+      cut: { strategy, bp1: b1, bp2: b2, cutPath: [b1.pt, ...bends, b2.pt] },
     };
   }
   return null;

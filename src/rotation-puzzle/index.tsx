@@ -10,6 +10,7 @@ import { generatePuzzle } from './generate';
 import { isPureRotationOf } from './validation';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { formatDuration, useTimer } from './hooks/useTimer';
+import { SeedBar, useSeedSequence } from '@/shared/seed';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -37,21 +38,30 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
 
   const { elapsed } = useTimer(true);
 
-  // Generate first puzzle once on mount and whenever difficulty changes (resets phase too).
+  const seedSeq = useSeedSequence('rotation:sessionSeed');
+
+  const regenerate = useCallback(
+    (useSeed: number) => {
+      setPuzzle(generatePuzzle(difficulty, { seed: useSeed }));
+      setPhase('answering');
+      setPick(null);
+      setFocused(0);
+    },
+    [difficulty],
+  );
+
+  // Generate first puzzle once on mount and whenever difficulty changes
+  // (re-bases the sequence). Deps intentionally only [difficulty] — adding
+  // seedSeq/regenerate would loop.
   useEffect(() => {
-    setPuzzle(generatePuzzle(difficulty));
-    setPhase('answering');
-    setPick(null);
-    setFocused(0);
+    regenerate(seedSeq.restart());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty]);
 
   const newPuzzle = useCallback(() => {
-    setPuzzle(generatePuzzle(difficulty));
-    setPhase('answering');
-    setPick(null);
-    setFocused(0);
+    regenerate(seedSeq.advance());
     setPuzzleNumber((n) => n + 1);
-  }, [difficulty]);
+  }, [regenerate, seedSeq]);
 
   const handlePick = useCallback(
     (idx: number) => {
@@ -174,6 +184,24 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
         {/* Controls row */}
         <div className="mb-6 flex flex-wrap items-center gap-3 justify-between">
           <DifficultyChips value={difficulty} onChange={setDifficulty} />
+          <SeedBar
+            variant="full"
+            seed={seedSeq.current}
+            draft={seedSeq.draft}
+            draftValid={seedSeq.draftValid}
+            onDraftChange={seedSeq.setDraft}
+            onNew={() => {
+              regenerate(seedSeq.fresh());
+              setPuzzleNumber((n) => n + 1);
+            }}
+            onReplay={() => {
+              regenerate(seedSeq.restart());
+            }}
+            onApply={() => {
+              const n = seedSeq.applyDraft();
+              if (n !== null) regenerate(n);
+            }}
+          />
           <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs text-text-dim font-mono uppercase tracking-wider">
             <input
               type="checkbox"

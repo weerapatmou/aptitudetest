@@ -10,6 +10,7 @@ import { ModeChips } from './ModeChips';
 import { DifficultyChips } from '../rotation-puzzle/DifficultyChips';
 import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
+import { SeedBar, useSeedSequence } from '@/shared/seed';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -37,20 +38,30 @@ export function PolygonAssemblyPuzzle({ difficulty: difficultyProp, onHome }: Pr
 
   const { elapsed } = useTimer(true);
 
+  const seedSeq = useSeedSequence('assembly:sessionSeed');
+
+  const regenerate = useCallback(
+    (useSeed: number) => {
+      setPuzzle(generateAssemblyPuzzle(difficulty, mode, useSeed));
+      setPhase('answering');
+      setPick(null);
+      setFocused(0);
+    },
+    [difficulty, mode],
+  );
+
+  // Re-base the sequence when difficulty OR mode changes (treat mode like difficulty).
+  // Dependency list is intentionally [difficulty, mode] only — adding seedSeq/regenerate
+  // would re-run on every render and loop.
   useEffect(() => {
-    setPuzzle(generateAssemblyPuzzle(difficulty, mode));
-    setPhase('answering');
-    setPick(null);
-    setFocused(0);
+    regenerate(seedSeq.restart());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty, mode]);
 
   const newPuzzle = useCallback(() => {
-    setPuzzle(generateAssemblyPuzzle(difficulty, mode));
-    setPhase('answering');
-    setPick(null);
-    setFocused(0);
+    regenerate(seedSeq.advance());
     setPuzzleNumber((n) => n + 1);
-  }, [difficulty, mode]);
+  }, [regenerate, seedSeq]);
 
   const handlePick = useCallback(
     (idx: number) => {
@@ -162,6 +173,19 @@ export function PolygonAssemblyPuzzle({ difficulty: difficultyProp, onHome }: Pr
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <DifficultyChips value={difficulty} onChange={setDifficulty} />
           <ModeChips value={mode} onChange={setMode} />
+          <SeedBar
+            variant="full"
+            seed={seedSeq.current}
+            draft={seedSeq.draft}
+            draftValid={seedSeq.draftValid}
+            onDraftChange={seedSeq.setDraft}
+            onNew={() => regenerate(seedSeq.fresh())}
+            onReplay={() => regenerate(seedSeq.restart())}
+            onApply={() => {
+              const n = seedSeq.applyDraft();
+              if (n !== null) regenerate(n);
+            }}
+          />
         </div>
 
         <div className="flex flex-col items-center gap-6">

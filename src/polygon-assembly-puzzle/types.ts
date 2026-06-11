@@ -11,7 +11,8 @@ export type Defect =
   | 'scale'
   | 'edge-length'
   | 'angle'
-  | 'substitution';
+  | 'substitution'
+  | 'rotation-trap';
 
 export type ScatteredPiece = {
   polygon: Polygon;
@@ -47,4 +48,5 @@ export const DEFECT_LABELS: Record<Defect, string> = {
   'edge-length': '✗ Joining edge does not match.',
   'substitution': '✗ One piece has the wrong shape.',
   'mirror-trap': '✗ Mirror required — strict 2D mode forbids flipping.',
+  'rotation-trap': '✗ One piece is rotated — it no longer seats in its slot.',
 };

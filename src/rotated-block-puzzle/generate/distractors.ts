@@ -11,6 +11,7 @@ import {
   reflect,
   removeBlock,
   stretch,
+  swapTwoBlocks,
 } from './polycube';
 import { hiddenCellCount } from './iso';
 
@@ -23,7 +24,14 @@ export type Distractor = { solid: Polycube; kind: DistractorKind };
 
 type Mutator = Exclude<DistractorKind, 'correct'>;
 
-const MUTATORS: Mutator[] = ['mirror', 'moved-block', 'added-block', 'removed-block', 'stretched'];
+const MUTATORS: Mutator[] = [
+  'mirror',
+  'moved-block',
+  'swap-two-blocks',
+  'added-block',
+  'removed-block',
+  'stretched',
+];
 
 function mutate(base: Polycube, kind: Mutator, rng: Rng): Polycube | null {
   switch (kind) {
@@ -31,6 +39,8 @@ function mutate(base: Polycube, kind: Mutator, rng: Rng): Polycube | null {
       return reflect(base);
     case 'moved-block':
       return moveBlock(base, rng);
+    case 'swap-two-blocks':
+      return swapTwoBlocks(base, rng);
     case 'added-block':
       return addBlock(base, rng);
     case 'removed-block':

@@ -12,14 +12,15 @@ type TierConfig = { k: number; baseSize: Vec3; maxZ: number };
 function tierConfig(difficulty: Difficulty, rng: Rng): TierConfig {
   switch (difficulty) {
     case 'easy':
-      return { k: rng.int(3, 5), baseSize: { x: 1, y: 1, z: 1 }, maxZ: 1 };
+      return { k: rng.int(3, 6), baseSize: { x: 1, y: 1, z: 1 }, maxZ: 1 };
     case 'normal': {
-      const L = rng.bool(0.5) ? rng.int(2, 4) : 1; // cube, or beam of length 2–3
-      return { k: rng.int(4, 7), baseSize: { x: L, y: 1, z: 1 }, maxZ: 2 };
+      const L = rng.bool(0.5) ? rng.int(2, 5) : 1; // cube, or beam of length 2–4
+      const maxZ = rng.bool(0.35) ? 3 : 2; // mostly two layers, sometimes three
+      return { k: rng.int(4, 8), baseSize: { x: L, y: 1, z: 1 }, maxZ };
     }
     case 'hard': {
-      const L = rng.int(2, 5); // beam of length 2–4
-      return { k: rng.int(6, 10), baseSize: { x: L, y: 1, z: 1 }, maxZ: 3 };
+      const L = rng.int(2, 6); // beam of length 2–5
+      return { k: rng.int(6, 12), baseSize: { x: L, y: 1, z: 1 }, maxZ: 4 };
     }
   }
 }

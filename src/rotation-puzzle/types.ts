@@ -52,7 +52,9 @@ export type OuterShape =
   | { kind: 'asymmetricEllipse'; rx: number; ry: number; flatSide?: 'top' | 'left' }
   | { kind: 'irregularHexagon'; vertices: Pt[] }
   | { kind: 'kite'; vertices: Pt[] }
-  | { kind: 'chevron'; vertices: Pt[] };
+  | { kind: 'chevron'; vertices: Pt[] }
+  | { kind: 'teardrop'; vertices: Pt[] }
+  | { kind: 'gear'; vertices: Pt[] };
 
 export type Figure = {
   outer: OuterShape;

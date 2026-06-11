@@ -19,7 +19,10 @@ export type ArchetypeKind =
   | 'fuel-range' // tank ÷ consumption × 100
   | 'profit-markup' // cost × r
   | 'how-many-fit' // floor(total ÷ per-item)
-  | 'time-to-finish'; // total ÷ per-period
+  | 'time-to-finish' // total ÷ per-period
+  | 'discount-price' // price × (1 − discount%)
+  | 'average-of-group' // total ÷ count
+  | 'tip-or-tax'; // bill × rate%
 
 export type DistractorKind =
   | 'order-of-magnitude' // ×10 or ÷10 slip (dropped a zero)

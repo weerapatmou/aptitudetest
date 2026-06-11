@@ -38,7 +38,8 @@ export type DistractorKind =
   | 'footprint-only' // counted only the columns / top surface
   | 'off-by-one'
   | 'off-by-two'
-  | 'face-tiles'; // counted visible square faces instead of cubes
+  | 'face-tiles' // counted visible square faces instead of cubes
+  | 'visible-plus-footprint'; // double-counted: visible cubes plus the column count
 
 export type Choice = {
   value: number;

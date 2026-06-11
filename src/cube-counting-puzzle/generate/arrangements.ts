@@ -10,7 +10,11 @@ type Archetype =
   | 'l-prism'
   | 'frame'
   | 'well'
-  | 'plus';
+  | 'plus'
+  | 'u-shape'
+  | 'two-towers'
+  | 't-prism'
+  | 'step-pyramid';
 
 type Cfg = {
   cols: [number, number]; // inclusive footprint width range
@@ -27,13 +31,13 @@ type Cfg = {
 // no carving. Difficulty scales size/height, not messiness.
 export const DIFFICULTY_CONFIG: Record<Difficulty, Cfg> = {
   easy: {
-    cols: [2, 3],
+    cols: [2, 4],
     rows: [2, 3],
     hMin: 1,
     hMax: 3,
-    archetypes: ['box', 'staircase', 'pyramid'],
+    archetypes: ['box', 'staircase', 'pyramid', 't-prism', 'step-pyramid'],
     totalMin: 4,
-    totalMax: 14,
+    totalMax: 16,
     hiddenMin: 1,
   },
   normal: {
@@ -41,7 +45,17 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, Cfg> = {
     rows: [3, 4],
     hMin: 1,
     hMax: 4,
-    archetypes: ['box', 'staircase', 'pyramid', 'tower-on-box', 'l-prism', 'plus'],
+    archetypes: [
+      'box',
+      'staircase',
+      'pyramid',
+      'tower-on-box',
+      'l-prism',
+      'plus',
+      't-prism',
+      'two-towers',
+      'step-pyramid',
+    ],
     totalMin: 10,
     totalMax: 30,
     hiddenMin: 3,
@@ -51,7 +65,20 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, Cfg> = {
     rows: [4, 5],
     hMin: 1,
     hMax: 5,
-    archetypes: ['box', 'staircase', 'pyramid', 'tower-on-box', 'l-prism', 'plus', 'frame', 'well'],
+    archetypes: [
+      'box',
+      'staircase',
+      'pyramid',
+      'tower-on-box',
+      'l-prism',
+      'plus',
+      'frame',
+      'well',
+      'u-shape',
+      'two-towers',
+      't-prism',
+      'step-pyramid',
+    ],
     totalMin: 18,
     totalMax: 60,
     hiddenMin: 6,
@@ -205,6 +232,117 @@ function buildPlus(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
   return height;
 }
 
+function buildUShape(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // Solid box with a rectangular bite taken out of the middle of one boundary
+  // edge, down to the floor — a U / channel that opens to the outside (never an
+  // enclosed hole, so it stays readable). Needs ≥3 along the notched axis to
+  // leave a wall on each side of the opening.
+  const h = rng.int(2, cfg.hMax + 1);
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) height[x]![y] = h;
+
+  // Pick which boundary edge the mouth opens on. Notch runs inward from that edge.
+  const edge = rng.pick(['x-', 'x+', 'y-', 'y+'] as const);
+  const horizontal = edge === 'y-' || edge === 'y+';
+  const along = horizontal ? cols : rows; // axis parallel to the opening edge
+  const deep = horizontal ? rows : cols; // axis the notch cuts into
+  if (along < 3 || deep < 2) return height; // too small to notch readably → plain box
+
+  // Opening width 1..along-2 (leave ≥1 wall each side), centred-ish via offset.
+  const w = rng.int(1, along - 1);
+  const off = rng.int(1, along - w); // 1..along-1-w → walls on both sides
+  // Notch depth 1..deep-1 (leave the back wall intact, keeping it connected).
+  const depth = rng.int(1, deep);
+
+  for (let i = 0; i < w; i++) {
+    for (let j = 0; j < depth; j++) {
+      const a = off + i; // position along the opening edge
+      let x: number;
+      let y: number;
+      switch (edge) {
+        case 'y-': x = a; y = j; break;
+        case 'y+': x = a; y = rows - 1 - j; break;
+        case 'x-': x = j; y = a; break;
+        default: x = cols - 1 - j; y = a; break; // 'x+'
+      }
+      height[x]![y] = 0;
+    }
+  }
+  return height;
+}
+
+function buildTwoTowers(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // A low base slab with two raised pads at opposite corners — connected through
+  // the slab. Each pad is ≥2 columns wide so no pad column is an isolated spike
+  // (its same-pad neighbour is equal height). ⇒ two-tower silhouette.
+  const base = rng.int(1, Math.max(2, cfg.hMax - 1)); // [1, hMax-2] so pads show above
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) height[x]![y] = base;
+
+  const padW = Math.min(cols, rng.int(1, 3)); // 1..2
+  const padH = Math.min(rows, rng.int(1, 3));
+  const bump = rng.int(1, 3); // +1..+2 above the base
+  // Pad A at the (0,0) corner, pad B at the far corner — diagonally apart.
+  const place = (x0: number, y0: number) => {
+    for (let x = x0; x < x0 + padW; x++) {
+      for (let y = y0; y < y0 + padH; y++) height[x]![y] = clampH(base + bump, cfg);
+    }
+  };
+  place(0, 0);
+  place(cols - padW, rows - padH);
+  return height;
+}
+
+function buildTPrism(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // A T-shaped footprint extruded to a uniform height: one full edge bar plus a
+  // perpendicular stem reaching the opposite edge. Uniform height ⇒ no pits or
+  // spikes; the footprint gaps sit at the boundary corners, never enclosed.
+  const h = rng.int(2, cfg.hMax + 1);
+  const height = zeros(cols, rows);
+  const edge = rng.pick(['y-', 'y+', 'x-', 'x+'] as const);
+  const horizontal = edge === 'y-' || edge === 'y+';
+  // Stem column/row index, kept off the very ends where possible so the T reads.
+  const stemX = horizontal ? (cols % 2 ? (cols - 1) / 2 : cols / 2 - 1 + (rng.bool() ? 1 : 0)) : 0;
+  const stemY = horizontal ? 0 : rows % 2 ? (rows - 1) / 2 : rows / 2 - 1 + (rng.bool() ? 1 : 0);
+
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
+      let onBar = false;
+      let onStem = false;
+      switch (edge) {
+        case 'y-': onBar = y === 0; onStem = x === stemX; break;
+        case 'y+': onBar = y === rows - 1; onStem = x === stemX; break;
+        case 'x-': onBar = x === 0; onStem = y === stemY; break;
+        default: onBar = x === cols - 1; onStem = y === stemY; break; // 'x+'
+      }
+      if (onBar || onStem) height[x]![y] = h;
+    }
+  }
+  return height;
+}
+
+function buildStepPyramid(cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
+  // Concentric square terraces: each Chebyshev ring inward is exactly 1 taller,
+  // capped by a flat plateau. Monotonic ±1 steps ⇒ always readable, and the
+  // solid footprint hides a stack of support cubes under each terrace.
+  const ax = (cols - 1) / 2;
+  const ay = (rows - 1) / 2;
+  const maxRing = Math.max(ax, ay);
+  // Lift the whole terrace by 0 or 1 — a uniform shift keeps the ±1 ring steps
+  // (and thus readability) while varying the silhouette and hidden-cube count.
+  const lift = rng.int(0, 2);
+  const height = zeros(cols, rows);
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
+      const ring = Math.floor(Math.min(maxRing, Math.max(Math.abs(x - ax), Math.abs(y - ay))));
+      // Outer ring = 1 (+lift), each step inward +1, capped at hMax.
+      const h = clampH(cfg.hMin + lift + (Math.floor(maxRing) - ring), cfg);
+      height[x]![y] = Math.max(1, h);
+    }
+  }
+  return height;
+}
+
 function buildArchetype(kind: Archetype, cols: number, rows: number, rng: Rng, cfg: Cfg): number[][] {
   switch (kind) {
     case 'box': return buildBox(cols, rows, rng, cfg);
@@ -215,6 +353,10 @@ function buildArchetype(kind: Archetype, cols: number, rows: number, rng: Rng, c
     case 'frame': return buildFrame(cols, rows, rng, cfg);
     case 'well': return buildWell(cols, rows, rng, cfg);
     case 'plus': return buildPlus(cols, rows, rng, cfg);
+    case 'u-shape': return buildUShape(cols, rows, rng, cfg);
+    case 'two-towers': return buildTwoTowers(cols, rows, rng, cfg);
+    case 't-prism': return buildTPrism(cols, rows, rng, cfg);
+    case 'step-pyramid': return buildStepPyramid(cols, rows, rng, cfg);
   }
 }
 
@@ -319,7 +461,12 @@ export function buildArrangement(difficulty: Difficulty, rng: Rng): Arrangement 
     // require a minimum. Structural shapes (rings/wells/cross/L) are challenging
     // through their geometry instead — exempt them from the hidden floor.
     const structural =
-      kind === 'frame' || kind === 'well' || kind === 'plus' || kind === 'l-prism';
+      kind === 'frame' ||
+      kind === 'well' ||
+      kind === 'plus' ||
+      kind === 'l-prism' ||
+      kind === 'u-shape' ||
+      kind === 't-prism';
     if (!structural && hiddenCubes(a) < cfg.hiddenMin) continue;
     return a;
   }

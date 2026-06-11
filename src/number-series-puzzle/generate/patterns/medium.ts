@@ -4,7 +4,7 @@ import { roundDec } from './easy';
 
 // M1: Δ increases by 1 each step (a(n+1) = a(n) + n)
 const arithGapGrows: PatternGenerator = (rng, length) => {
-  const start = rng.int(1, 8);
+  const start = rng.int(1, 15);
   const startGap = rng.int(1, 4);
   const terms: number[] = [start];
   let gap = startGap;
@@ -39,8 +39,8 @@ const geoFactorGrows: PatternGenerator = (_rng, length) => {
 };
 
 // M4: add successive odd numbers (1, 3, 5, 7, 9, …)
-const oddStepAdd: PatternGenerator = (rng, length) => {
-  const start = rng.int(1, 10);
+export const oddStepAdd: PatternGenerator = (rng, length) => {
+  const start = rng.int(1, 20);
   const terms: number[] = [start];
   let odd = 1;
   for (let i = 1; i < length; i++) {
@@ -134,7 +134,7 @@ export const fibonacci: PatternGenerator = (rng, length) => {
 };
 
 // M10: triangular numbers
-const triangular: PatternGenerator = (rng, length) => {
+export const triangular: PatternGenerator = (rng, length) => {
   const startN = rng.int(1, 4);
   const terms = Array.from({ length }, (_, i) => {
     const n = startN + i;

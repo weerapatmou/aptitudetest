@@ -4,7 +4,7 @@ import { fmt, messyNear, roundDec } from '../messy';
 
 export type ProblemGenerator = (rng: Rng) => ApproxProblem;
 
-// A small bank of names to vary the prompts, in the spirit of the source material.
+// A bank of names to vary the prompts, in the spirit of the source material.
 const NAMES = [
   'Somchai',
   'Napha',
@@ -14,6 +14,26 @@ const NAMES = [
   'Suda',
   'Anan',
   'Pim',
+  'Niran',
+  'Ploy',
+  'Krit',
+  'Mali',
+  'Decha',
+  'Wan',
+  'Arthit',
+  'Bua',
+  'Chai',
+  'Dao',
+  'Ekkachai',
+  'Fon',
+  'Kamol',
+  'Lalita',
+  'Prasert',
+  'Rung',
+  'Sunan',
+  'Thanon',
+  'Ubon',
+  'Yupha',
 ] as const;
 const name = (rng: Rng) => rng.pick(NAMES);
 
@@ -22,14 +42,28 @@ const name = (rng: Rng) => rng.pick(NAMES);
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const speed: ProblemGenerator = (rng) => {
-  const roundDist = rng.pick([300, 500, 600, 750, 900] as const);
+  const roundDist = rng.pick([300, 400, 500, 600, 720, 750, 800, 900] as const);
   const time = rng.int(2, 7); // 2..6 hours
   const dist = messyNear(rng, roundDist, { decimals: 0 });
   const estimate = Math.round(roundDist / time);
-  const vehicle = rng.pick(['car', 'train', 'bus'] as const);
+  const vehicle = rng.pick([
+    'car',
+    'train',
+    'bus',
+    'truck',
+    'ferry',
+    'coach',
+    'van',
+    'motorcycle',
+  ] as const);
+  const prompt = rng.pick([
+    `A ${vehicle} travels ${fmt(dist)} kilometers in ${time} hours. Estimate its average speed.`,
+    `Over ${time} hours a ${vehicle} covers ${fmt(dist)} kilometers. About what is its average speed?`,
+    `A ${vehicle} drives ${fmt(dist)} kilometers, and the trip takes ${time} hours. Roughly how fast was it going?`,
+  ]);
   return {
     kind: 'speed',
-    prompt: `A ${vehicle} travels ${fmt(dist)} kilometers in ${time} hours. Estimate its average speed.`,
+    prompt,
     unit: 'km/hr',
     exactValue: dist / time,
     estimateValue: estimate,
@@ -40,16 +74,32 @@ export const speed: ProblemGenerator = (rng) => {
 };
 
 export const unitPrice: ProblemGenerator = (rng) => {
-  const roundPrice = rng.pick([5, 12, 15, 20, 25] as const);
-  const roundQty = rng.pick([10, 19, 20, 30] as const);
+  const roundPrice = rng.pick([5, 8, 12, 15, 18, 20, 25, 40] as const);
+  const roundQty = rng.pick([10, 12, 15, 19, 20, 25, 30, 40] as const);
   const price = messyNear(rng, roundPrice, { decimals: 2 });
   const qty = rng.bool() ? roundQty : roundQty - 1;
   const estimate = roundPrice * roundQty;
   const who = name(rng);
-  const item = rng.pick(['shirts', 'notebooks', 'mugs', 'books'] as const);
+  const item = rng.pick([
+    'shirts',
+    'notebooks',
+    'mugs',
+    'books',
+    'pens',
+    'plates',
+    'lamps',
+    'tickets',
+    'plants',
+    'chargers',
+  ] as const);
+  const prompt = rng.pick([
+    `${who} bought ${qty} ${item} for $${price.toFixed(2)} each. About how much was spent in total?`,
+    `${who} picked up ${qty} ${item} at $${price.toFixed(2)} apiece. Roughly what was the total cost?`,
+    `At $${price.toFixed(2)} each, ${who} ordered ${qty} ${item}. Estimate the total bill.`,
+  ]);
   return {
     kind: 'unit-price',
-    prompt: `${who} bought ${qty} ${item} for $${price.toFixed(2)} each. About how much was spent in total?`,
+    prompt,
     unit: '$',
     exactValue: qty * price,
     estimateValue: estimate,
@@ -60,13 +110,25 @@ export const unitPrice: ProblemGenerator = (rng) => {
 };
 
 export const rowsTimesPerRow: ProblemGenerator = (rng) => {
-  const rows = rng.int(18, 31); // 18..30
-  const roundPerRow = rng.pick([10, 20, 30] as const);
-  const perRow = roundPerRow - 1; // e.g. 19, 29
+  const rows = rng.int(18, 41); // 18..40
+  const roundPerRow = rng.pick([10, 20, 30, 40, 50] as const);
+  const perRow = roundPerRow - 1; // e.g. 19, 29, 39
   const estimate = rows * roundPerRow;
+  const place = rng.pick([
+    'The assembly hall',
+    'The auditorium',
+    'The theater',
+    'The lecture hall',
+    'The conference room',
+    'The cinema',
+  ] as const);
+  const prompt = rng.pick([
+    `${place} sets up ${rows} rows of chairs with ${perRow} chairs in each row. About how many chairs are there in total?`,
+    `${place} has ${rows} rows, each holding ${perRow} chairs. Roughly how many seats is that?`,
+  ]);
   return {
     kind: 'rows-times-per-row',
-    prompt: `An assembly hall sets up ${rows} rows of chairs with ${perRow} chairs in each row. About how many chairs are there in total?`,
+    prompt,
     unit: 'chairs',
     exactValue: rows * perRow,
     estimateValue: estimate,
@@ -77,32 +139,45 @@ export const rowsTimesPerRow: ProblemGenerator = (rng) => {
 };
 
 export const divisionPerUnit: ProblemGenerator = (rng) => {
-  const quotient = rng.pick([200, 300, 400, 500] as const); // the clean answer
+  const quotient = rng.pick([150, 200, 250, 300, 400, 500, 600] as const); // the clean answer
   const divisor = rng.pick([19, 29, 39, 49] as const);
   const cleanDivisor = divisor + 1; // rounds up to 20, 30, 40, 50
   // Total near (answer × clean divisor) so rounding the inputs lands on `quotient`.
   const total = messyNear(rng, quotient * cleanDivisor, { decimals: 0 });
+  const ctx = rng.pick([
+    { thing: 'books', holder: 'shelves', verb: 'arrange equally onto', per: 'on each shelf' },
+    { thing: 'chairs', holder: 'rooms', verb: 'distribute equally across', per: 'in each room' },
+    { thing: 'parcels', holder: 'trucks', verb: 'load equally onto', per: 'on each truck' },
+    { thing: 'seedlings', holder: 'trays', verb: 'spread equally across', per: 'in each tray' },
+  ] as const);
   return {
     kind: 'division-per-unit',
-    prompt: `A library has ${fmt(total)} books to arrange equally onto ${divisor} shelves. About how many books will fit on each shelf?`,
-    unit: 'books',
+    prompt: `A depot has ${fmt(total)} ${ctx.thing} to ${ctx.verb} ${divisor} ${ctx.holder}. About how many ${ctx.thing} will fit ${ctx.per}?`,
+    unit: ctx.thing,
     exactValue: total / divisor,
     estimateValue: quotient,
     mentalLogic: `≈ ${fmt(quotient * cleanDivisor)} ÷ ${cleanDivisor} = ${fmt(quotient)}.`,
-    formula: 'per shelf = total ÷ shelves',
+    formula: `per ${ctx.holder.slice(0, -1)} = total ÷ ${ctx.holder}`,
     precision: 0,
   };
 };
 
 export const percentageOf: ProblemGenerator = (rng) => {
-  const total = rng.pick([4000, 6000, 8000, 9000, 12000] as const);
-  const roundPct = rng.pick([10, 15, 20, 25] as const);
+  const total = rng.pick([4000, 5000, 6000, 8000, 9000, 10000, 12000, 15000] as const);
+  const roundPct = rng.pick([10, 15, 20, 25, 30, 40] as const);
   const pct = messyNear(rng, roundPct, { decimals: 2 });
   const estimate = Math.round((total * roundPct) / 100);
+  const ctx = rng.pick([
+    { who: 'A company', whole: 'employees', verb: 'work remotely', subj: 'them' },
+    { who: 'A university', whole: 'students', verb: 'live on campus', subj: 'them' },
+    { who: 'A city', whole: 'households', verb: 'recycle weekly', subj: 'them' },
+    { who: 'A festival', whole: 'attendees', verb: 'bought VIP passes', subj: 'them' },
+    { who: 'A clinic', whole: 'patients', verb: 'booked online', subj: 'them' },
+  ] as const);
   return {
     kind: 'percentage-of',
-    prompt: `A company has ${fmt(total)} employees. If ${pct.toFixed(2)}% of them work remotely, about how many work remotely?`,
-    unit: 'employees',
+    prompt: `${ctx.who} has ${fmt(total)} ${ctx.whole}. If ${pct.toFixed(2)}% of ${ctx.subj} ${ctx.verb}, about how many is that?`,
+    unit: ctx.whole,
     exactValue: (total * pct) / 100,
     estimateValue: estimate,
     mentalLogic: `≈ ${roundPct}% of ${fmt(total)} = ${fmt(estimate)}.`,
@@ -112,12 +187,24 @@ export const percentageOf: ProblemGenerator = (rng) => {
 };
 
 export const areaSquare: ProblemGenerator = (rng) => {
-  const roundSide = rng.pick([10, 12, 15, 20] as const);
+  const roundSide = rng.pick([8, 10, 12, 15, 18, 20, 25, 30] as const);
   const side = messyNear(rng, roundSide, { decimals: 1 });
   const estimate = roundSide * roundSide;
+  const thing = rng.pick([
+    'square garden plot',
+    'square courtyard',
+    'square tile floor',
+    'square patio',
+    'square paddock',
+    'square plaza',
+  ] as const);
+  const prompt = rng.pick([
+    `A ${thing} has a side length of ${side} meters. What is its approximate area?`,
+    `A ${thing} measures ${side} meters on each side. Estimate its area.`,
+  ]);
   return {
     kind: 'area-square',
-    prompt: `A square garden plot has a side length of ${side} meters. What is its approximate area?`,
+    prompt,
     unit: 'm²',
     exactValue: side * side,
     estimateValue: estimate,
@@ -137,9 +224,21 @@ export const areaRectangle: ProblemGenerator = (rng) => {
   const w = messyNear(rng, roundW, { decimals: 1 });
   const l = messyNear(rng, roundL, { decimals: 1 });
   const estimate = roundW * roundL;
+  const thing = rng.pick([
+    'rug',
+    'banner',
+    'garden bed',
+    'tarpaulin',
+    'billboard',
+    'mural',
+  ] as const);
+  const prompt = rng.pick([
+    `A ${thing} is ${w} meters wide and ${l} meters long. What is its approximate area?`,
+    `A ${thing} measures ${w} meters by ${l} meters. Estimate its area.`,
+  ]);
   return {
     kind: 'area-rectangle',
-    prompt: `A rug is ${w} meters wide and ${l} meters long. What is its approximate area?`,
+    prompt,
     unit: 'm²',
     exactValue: w * l,
     estimateValue: estimate,
@@ -150,18 +249,24 @@ export const areaRectangle: ProblemGenerator = (rng) => {
 };
 
 export const percentageComplement: ProblemGenerator = (rng) => {
-  const total = messyNear(rng, rng.pick([12000, 15000, 18000, 20000] as const), {
+  const total = messyNear(rng, rng.pick([12000, 15000, 16000, 18000, 20000, 24000] as const), {
     decimals: 0,
   });
   const roundTotal = Math.round(total / 1000) * 1000;
-  const roundFilled = rng.pick([80, 85, 90] as const);
+  const roundFilled = rng.pick([70, 75, 80, 84, 85] as const);
   const filledPct = messyNear(rng, roundFilled, { decimals: 2 });
   const emptyRoundPct = 100 - roundFilled;
   const estimate = Math.round((roundTotal * emptyRoundPct) / 100);
+  const ctx = rng.pick([
+    { who: 'A stadium', unit: 'seats', filled: 'filled for a game', empty: 'empty' },
+    { who: 'A parking garage', unit: 'spaces', filled: 'occupied', empty: 'still free' },
+    { who: 'A warehouse', unit: 'pallet slots', filled: 'in use', empty: 'available' },
+    { who: 'An airliner fleet', unit: 'seats', filled: 'booked', empty: 'unsold' },
+  ] as const);
   return {
     kind: 'percentage-complement',
-    prompt: `A stadium has ${fmt(total)} seats. If ${filledPct.toFixed(2)}% of the seats are filled for a game, about how many seats are empty?`,
-    unit: 'seats',
+    prompt: `${ctx.who} has ${fmt(total)} ${ctx.unit}. If ${filledPct.toFixed(2)}% of them are ${ctx.filled}, about how many are ${ctx.empty}?`,
+    unit: ctx.unit,
     exactValue: (total * (100 - filledPct)) / 100,
     estimateValue: estimate,
     mentalLogic: `Empty ≈ ${emptyRoundPct}% of ${fmt(roundTotal)} = ${fmt(estimate)}.`,
@@ -195,10 +300,21 @@ export const howManyFit: ProblemGenerator = (rng) => {
   const roundTotal = rng.pick([20, 25, 30] as const);
   const total = messyNear(rng, roundTotal, { decimals: 1 });
   const estimate = Math.round(roundTotal / roundPer);
-  const item = rng.pick(['loaves of bread', 'trays of pies', 'cakes'] as const);
+  const item = rng.pick([
+    'loaves of bread',
+    'trays of pies',
+    'cakes',
+    'batches of buns',
+    'pizza bases',
+    'pastry sheets',
+  ] as const);
+  const prompt = rng.pick([
+    `A baker uses ${per} kilograms of flour per item. With ${total} kilograms of flour, about how many ${item} can be made?`,
+    `Each item needs ${per} kilograms of flour. From ${total} kilograms, roughly how many ${item} can a baker make?`,
+  ]);
   return {
     kind: 'how-many-fit',
-    prompt: `A baker uses ${per} kilograms of flour per item. With ${total} kilograms of flour, about how many ${item} can be made?`,
+    prompt,
     unit: 'items',
     exactValue: Math.floor(total / per),
     estimateValue: estimate,
@@ -336,6 +452,89 @@ export const fuelRange: ProblemGenerator = (rng) => {
   };
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Discount / average / tip-tax
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const discountPrice: ProblemGenerator = (rng) => {
+  // Sale price after a clean discount: price × (1 − d%).
+  const roundPrice = rng.pick([200, 300, 400, 500, 600, 800, 1000] as const);
+  const price = messyNear(rng, roundPrice, { decimals: 0 });
+  const discount = rng.pick([10, 15, 20, 25, 30] as const);
+  const estimate = Math.round((roundPrice * (100 - discount)) / 100);
+  const who = name(rng);
+  const item = rng.pick([
+    'a jacket',
+    'a bicycle',
+    'a desk',
+    'a phone',
+    'a sofa',
+    'a backpack',
+  ] as const);
+  const Item = item.charAt(0).toUpperCase() + item.slice(1);
+  const prompt = rng.pick([
+    `${Item} is priced at $${fmt(price)} and is marked ${discount}% off. About what does ${who} pay?`,
+    `${who} buys ${item} listed at $${fmt(price)} with a ${discount}% discount. Roughly what is the sale price?`,
+  ]);
+  return {
+    kind: 'discount-price',
+    prompt,
+    unit: '$',
+    exactValue: (price * (100 - discount)) / 100,
+    estimateValue: estimate,
+    mentalLogic: `≈ $${fmt(roundPrice)} − ${discount}% = $${fmt(estimate)}.`,
+    formula: 'sale price = price × (100 − discount%)',
+    precision: 0,
+  };
+};
+
+export const averageOfGroup: ProblemGenerator = (rng) => {
+  // Average = total ÷ count, with a clean quotient.
+  const quotient = rng.pick([20, 25, 30, 40, 50, 60, 75] as const);
+  const count = rng.pick([4, 5, 6, 8, 10] as const);
+  const total = messyNear(rng, quotient * count, { decimals: 0 });
+  const ctx = rng.pick([
+    { whole: 'students', score: 'points', verb: 'scored a combined' },
+    { whole: 'players', score: 'goals', verb: 'netted a combined' },
+    { whole: 'branches', score: 'sales', verb: 'reported a combined' },
+    { whole: 'workers', score: 'units', verb: 'produced a combined' },
+  ] as const);
+  return {
+    kind: 'average-of-group',
+    prompt: `${count} ${ctx.whole} ${ctx.verb} ${fmt(total)} ${ctx.score}. About what is the average per ${ctx.whole.slice(0, -1)}?`,
+    unit: ctx.score,
+    exactValue: total / count,
+    estimateValue: quotient,
+    mentalLogic: `≈ ${fmt(quotient * count)} ÷ ${count} = ${fmt(quotient)}.`,
+    formula: `average = total ÷ ${ctx.whole}`,
+    precision: 0,
+  };
+};
+
+export const tipOrTax: ProblemGenerator = (rng) => {
+  // A tip or tax on a bill: bill × rate%.
+  const roundBill = rng.pick([400, 600, 800, 1000, 1200, 1500, 2000] as const);
+  const bill = messyNear(rng, roundBill, { decimals: 0 });
+  const rate = rng.pick([5, 8, 10, 12, 15] as const);
+  const estimate = Math.round((roundBill * rate) / 100);
+  const ctx = rng.pick([
+    { label: 'tip', verb: 'wants to leave a', tail: 'tip' },
+    { label: 'tax', verb: 'is charged a', tail: 'service tax' },
+    { label: 'tip', verb: 'adds a', tail: 'gratuity' },
+  ] as const);
+  const who = name(rng);
+  return {
+    kind: 'tip-or-tax',
+    prompt: `${who}'s bill comes to $${fmt(bill)}, and ${who} ${ctx.verb} ${rate}% ${ctx.tail}. About how much is that?`,
+    unit: '$',
+    exactValue: (bill * rate) / 100,
+    estimateValue: estimate,
+    mentalLogic: `≈ ${rate}% of $${fmt(roundBill)} = $${fmt(estimate)}.`,
+    formula: `${ctx.label} = bill × rate%`,
+    precision: 0,
+  };
+};
+
 export const ALL_GENERATORS: ProblemGenerator[] = [
   speed,
   unitPrice,
@@ -353,4 +552,7 @@ export const ALL_GENERATORS: ProblemGenerator[] = [
   simpleInterest,
   roundTripTime,
   fuelRange,
+  discountPrice,
+  averageOfGroup,
+  tipOrTax,
 ];

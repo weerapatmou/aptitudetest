@@ -216,6 +216,59 @@ function edgeSlit(c: Polygon, rng: Rng): Base | null {
   return cutOff(c, b1, b2, [add(b1.pt, nrm, depth), add(b2.pt, nrm, depth)]);
 }
 
+/** Crenellated (W-shaped) notch with two prongs cut into an edge. */
+function doubleNotch(c: Polygon, rng: Rng): Base | null {
+  const e = rng.int(0, c.length);
+  const minDim = Math.min(
+    polygonBounds(c).maxX - polygonBounds(c).minX,
+    polygonBounds(c).maxY - polygonBounds(c).minY,
+  );
+  const t1 = 0.14 + rng.next() * 0.12;
+  const t2 = t1 + (0.4 + rng.next() * 0.2); // wide mouth spanning both prongs
+  if (t2 > 0.86) return null;
+  const span = t2 - t1;
+  // Two equal-depth bays separated by a central tooth that does NOT reach the
+  // edge — keeps the missing region a single connected piece.
+  const ta = t1 + span * (0.3 + rng.next() * 0.08);
+  const tb = t2 - span * (0.3 + rng.next() * 0.08);
+  const nrm = inwardNormal(c, e);
+  const depth = (0.32 + rng.next() * 0.2) * minDim;
+  const tooth = depth * (0.34 + rng.next() * 0.22); // central tooth rises partway in
+  const b1 = bp(c, e, t1);
+  const b2 = bp(c, e, t2);
+  const a = bp(c, e, ta).pt;
+  const b = bp(c, e, tb).pt;
+  return cutOff(c, b1, b2, [
+    add(b1.pt, nrm, depth),
+    add(a, nrm, depth),
+    add(a, nrm, tooth),
+    add(b, nrm, tooth),
+    add(b, nrm, depth),
+    add(b2.pt, nrm, depth),
+  ]);
+}
+
+/** Staircase step cut out of a corner → two-tread L on the diagonal. */
+function cornerStep(c: Polygon, rng: Rng): Base | null {
+  const n = c.length;
+  const v = rng.int(0, n);
+  const e1 = (v + n - 1) % n; // edge ending at corner v
+  const e2 = v; // edge leaving corner v
+  const f1 = 0.4 + rng.next() * 0.26;
+  const f2 = 0.4 + rng.next() * 0.26;
+  const corner = c[v]!;
+  const b1 = bp(c, e1, 1 - f1);
+  const b2 = bp(c, e2, f2);
+  // Mid-points along each leg and the inner staircase knee, all relative to the
+  // corner so the step nests inside the shape for both right and slanted angles.
+  const m1: Pt = { x: (b1.pt.x + corner.x) / 2, y: (b1.pt.y + corner.y) / 2 };
+  const m2: Pt = { x: (b2.pt.x + corner.x) / 2, y: (b2.pt.y + corner.y) / 2 };
+  const knee: Pt = { x: m1.x + m2.x - corner.x, y: m1.y + m2.y - corner.y };
+  const inner: Pt = { x: b1.pt.x + b2.pt.x - corner.x, y: b1.pt.y + b2.pt.y - corner.y };
+  if (!pointInPolygon(inner, c) || !pointInPolygon(knee, c)) return null;
+  return cutOff(c, b1, b2, [inner, m2, knee, m1]);
+}
+
 /** Organic free cut (random chord or single bend) — keeps some variety smooth. */
 function organicCut(c: Polygon, rng: Rng): Base | null {
   const cut = cutPolygon(c, rng.bool(0.5) ? 'straight-chord' : 'polyline', rng);
@@ -245,6 +298,8 @@ const TEMPLATES: Array<{ fn: Template; weight: number }> = [
   { fn: edgeTrapezoid, weight: 2 },
   { fn: edgeStep, weight: 2 },
   { fn: edgeSlit, weight: 2 },
+  { fn: doubleNotch, weight: 2 },
+  { fn: cornerStep, weight: 2 },
   { fn: organicCut, weight: 2 },
 ];
 

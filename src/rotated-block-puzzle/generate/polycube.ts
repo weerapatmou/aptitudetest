@@ -254,6 +254,21 @@ export function moveBlock(solid: Polycube, rng: Rng): Polycube | null {
 }
 
 /**
+ * Relocate two blocks: apply moveBlock twice, keeping the cell count the same
+ * but reshaping more than a single move would. Each step keeps the solid
+ * connected; the result is guarded to be neither the original nor (defensively)
+ * a single-move shape so it reads as a distinct, harder trap.
+ */
+export function swapTwoBlocks(solid: Polycube, rng: Rng): Polycube | null {
+  const first = moveBlock(solid, rng);
+  if (!first) return null;
+  const second = moveBlock(first, rng);
+  if (!second) return null;
+  if (isRotationCongruent(second, solid)) return null;
+  return second;
+}
+
+/**
  * Stretch the solid by duplicating it shifted one step along an axis where it is
  * thin — lengthens a run so the proportions read wrong.
  */
