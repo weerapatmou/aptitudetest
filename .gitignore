@@ -3,7 +3,7 @@ dist
 dist-ssr
 *.local
 .vite
-coverage
+/coverage
 .DS_Store
 *.log
 .env*
