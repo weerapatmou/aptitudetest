@@ -40,6 +40,7 @@ export function AssembledOptionCard({
   const revealed = phase === 'revealed';
   const showCorrectRing = revealed && isCorrect;
   const showWrongRing = revealed && selected && !isCorrect;
+  const showSelectedRing = !revealed && selected;
 
   useEffect(() => {
     if (focused && ref.current) ref.current.focus({ preventScroll: true });
@@ -66,21 +67,25 @@ export function AssembledOptionCard({
       className={clsx(
         'group relative rounded-xl border bg-bg-card transition-colors text-text card-focus-ring',
         compact ? 'p-2 w-full' : 'p-4 shrink-0',
-        !revealed && 'hover:bg-bg-card-hover hover:border-border-strong',
+        !revealed && !showSelectedRing && 'hover:bg-bg-card-hover hover:border-border-strong',
         showCorrectRing && 'border-correct',
         showWrongRing && 'border-wrong',
-        !showCorrectRing && !showWrongRing && 'border-border',
+        showSelectedRing && 'border-accent bg-accent/10',
+        !showCorrectRing && !showWrongRing && !showSelectedRing && 'border-border',
       )}
       style={
         showCorrectRing
           ? { boxShadow: '0 0 0 2px var(--correct), 0 0 28px -6px var(--correct)' }
           : showWrongRing
           ? { boxShadow: '0 0 0 2px var(--wrong), 0 0 24px -6px var(--wrong)' }
+          : showSelectedRing
+          ? { boxShadow: '0 0 0 2px var(--accent), 0 0 24px -6px var(--accent)' }
           : undefined
       }
     >
       <div className={clsx(
-        'absolute top-2 left-2 z-10 font-mono tracking-widest text-text-dim group-hover:text-accent',
+        'absolute top-2 left-2 z-10 font-mono tracking-widest',
+        showSelectedRing ? 'text-accent' : 'text-text-dim group-hover:text-accent',
         compact ? 'text-[9px]' : 'text-[11px]',
       )}>
         {letter}
