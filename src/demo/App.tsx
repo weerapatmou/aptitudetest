@@ -13,6 +13,7 @@ import { RotatedBlockPuzzle } from '@/rotated-block-puzzle';
 import { FlipBoxPuzzle } from '@/flip-box-puzzle';
 import { FindingRotatedShapesPuzzle } from '@/finding-rotated-shapes-puzzle';
 import { JigsawPuzzle } from '@/jigsaw-puzzle';
+import { HiddenFiguresPuzzle } from '@/hidden-figures-puzzle';
 
 type Mode =
   | 'home'
@@ -27,7 +28,8 @@ type Mode =
   | 'rotated-block'
   | 'flip-box'
   | 'finding-rotated-shapes'
-  | 'jigsaw-puzzle';
+  | 'jigsaw-puzzle'
+  | 'hidden-figures';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -47,6 +49,7 @@ function readMode(): Mode {
     raw === 'flip-box' ||
     raw === 'finding-rotated-shapes' ||
     raw === 'jigsaw-puzzle' ||
+    raw === 'hidden-figures' ||
     raw === 'home'
   )
     return raw;
@@ -102,6 +105,9 @@ export function App() {
       {mode === 'jigsaw-puzzle' && (
         <JigsawPuzzle onHome={() => setMode('home')} />
       )}
+      {mode === 'hidden-figures' && (
+        <HiddenFiguresPuzzle onHome={() => setMode('home')} />
+      )}
     </div>
   );
 }
@@ -127,7 +133,7 @@ type CategoryDef = {
 
 // ─── Score keys that persist across sessions ──────────────────────────────────
 
-const SCORE_KEYS = ['rotation:score', 'matching:score', 'assembly:score', 'jigsaw:score'] as const;
+const SCORE_KEYS = ['rotation:score', 'matching:score', 'assembly:score', 'jigsaw:score', 'hiddenFigures:score'] as const;
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 
@@ -236,6 +242,23 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
               <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="-9,-6 -2,-9 1,-2 -4,3 -8,1" />
                 <path d="M 3 7 q 6 -2 6 -8 M 9 -1 l 0 -4 l -4 1" opacity={0.7} />
+              </g>
+            </svg>
+          ),
+        },
+        {
+          id: 'hidden-figures',
+          title: 'Hidden Figures',
+          tagline: 'Perceptual Reasoning',
+          description:
+            'Five simple shapes are labeled (A)–(E). Each question shows a more complex figure with one shape hidden inside — extra lines obscure it. Identify which lettered shape is concealed.',
+          icon: (
+            <svg width={36} height={36} viewBox="-12 -12 24 24" aria-hidden="true">
+              <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="-7,-7 7,-7 7,7 -7,7" opacity={0.3} />
+                <polygon points="-5,-9 9,-1 3,9" />
+                <line x1="-9" y1="3" x2="8" y2="-5" opacity={0.5} />
+                <line x1="-3" y1="-9" x2="5" y2="9" opacity={0.5} />
               </g>
             </svg>
           ),
