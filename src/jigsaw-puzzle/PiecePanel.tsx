@@ -52,13 +52,13 @@ export function PiecePanel({ pieces, pieceCount, targetPolygon, compact = false 
         'absolute top-2 left-2 z-10 font-mono uppercase text-accent tracking-[0.14em]',
         compact ? 'text-[9px]' : 'text-[10px] tracking-[0.18em]',
       )}>
-        ชิ้นส่วน
+        PIECES
       </div>
       <div className={clsx(
         'absolute top-2 right-2 z-10 font-mono uppercase text-text-dim tracking-[0.14em]',
         compact ? 'text-[9px]' : 'text-[10px] tracking-[0.18em]',
       )}>
-        {pieceCount} ชิ้น
+        {pieceCount} PCS
       </div>
       <div
         className="flex items-center justify-center text-text"

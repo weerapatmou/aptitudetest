@@ -150,7 +150,7 @@ export function JigsawPuzzle({ onHome }: Props = {}) {
         <div className="mb-6 flex flex-wrap items-center gap-3">
           {/* Sheet size input */}
           <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-bg-card px-3 py-1.5">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-text-dim/60">ข้อ</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-text-dim/60">Q</span>
             <input
               type="number"
               min={1}
@@ -168,7 +168,7 @@ export function JigsawPuzzle({ onHome }: Props = {}) {
           </div>
           {/* Piece count mode selector */}
           <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg-card p-1">
-            <span className="px-2 font-mono text-[10px] uppercase tracking-wider text-text-dim/60">ชิ้น</span>
+            <span className="px-2 font-mono text-[10px] uppercase tracking-wider text-text-dim/60">PCS</span>
             {(['3', '4', '5', 'mix'] as PieceMode[]).map((m) => (
               <button
                 key={m}
@@ -230,7 +230,7 @@ export function JigsawPuzzle({ onHome }: Props = {}) {
             </div>
           ) : (
             <div className="font-mono text-xs text-text-dim">
-              ตอบแล้ว{' '}
+              Answered{' '}
               <span className={clsx('font-medium', answeredCount === totalCount ? 'text-accent' : 'text-text')}>
                 {answeredCount}/{totalCount}
               </span>
@@ -243,7 +243,7 @@ export function JigsawPuzzle({ onHome }: Props = {}) {
                 onClick={newSheet}
                 className="px-5 py-2 rounded-lg font-mono uppercase tracking-wider text-xs bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
               >
-                ชุดใหม่ →
+                New Set →
               </button>
             )}
             {!submitted && (
@@ -257,7 +257,7 @@ export function JigsawPuzzle({ onHome }: Props = {}) {
                     : 'bg-bg-card text-text-dim/50 border border-border cursor-not-allowed',
                 )}
               >
-                ส่งคำตอบ ({answeredCount}/{totalCount})
+                Submit ({answeredCount}/{totalCount})
               </button>
             )}
           </div>

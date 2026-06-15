@@ -22,33 +22,33 @@ export function buildOptions(a: Arrangement, rng: Rng): Choice[] {
   const lead: Candidate = {
     value: visible,
     kind: 'visible-only',
-    rationale: 'นับเฉพาะก้อนที่มองเห็น ลืมก้อนที่ซ่อนอยู่ข้างในและข้างหลัง',
+    rationale: 'Counted only visible cubes, forgetting the hidden ones inside and behind',
   };
   const rest: Candidate[] = rng.shuffle([
     {
       value: footprint,
       kind: 'footprint-only',
-      rationale: 'นับแค่จำนวนเสา (ผิวด้านบน) โดยไม่ได้คูณความสูงของแต่ละเสา',
+      rationale: 'Counted only the columns (top surface) without multiplying by each column\'s height',
     },
     {
       value: total + (rng.bool() ? 1 : -1),
       kind: 'off-by-one',
-      rationale: 'พลาดไป 1 ก้อน — นับเกินหรือขาดไปหนึ่งก้อน',
+      rationale: 'Off by 1 — counted one too many or one too few',
     },
     {
       value: total + (rng.bool() ? 2 : -2),
       kind: 'off-by-two',
-      rationale: 'พลาดไป 2 ก้อน — มักเกิดจากการนับเสาที่ถูกบังผิด',
+      rationale: 'Off by 2 — often from miscounting obscured columns',
     },
     {
       value: tiles,
       kind: 'face-tiles',
-      rationale: 'นับจำนวนหน้าสี่เหลี่ยมที่มองเห็น แทนที่จะนับก้อนลูกบาศก์',
+      rationale: 'Counted visible square faces instead of cubes',
     },
     {
       value: visible + footprint,
       kind: 'visible-plus-footprint',
-      rationale: 'นับซ้ำ — เอาก้อนที่เห็นบวกกับจำนวนเสา ทำให้เกินจริง',
+      rationale: 'Double-counted — added visible cubes plus column count, inflating the total',
     },
   ]);
   const pool: Candidate[] = [lead, ...rest];
@@ -73,7 +73,7 @@ export function buildOptions(a: Arrangement, rng: Rng): Choice[] {
         distractors.push({
           value: v,
           kind: 'off-by-two',
-          rationale: 'ใกล้เคียงคำตอบแต่ไม่ถูก — ลองนับชั้นและเสาให้ครบอีกครั้ง',
+          rationale: 'Close but not correct — recount each layer and column carefully',
         });
       }
     }
@@ -85,7 +85,7 @@ export function buildOptions(a: Arrangement, rng: Rng): Choice[] {
       value: total,
       isCorrect: true,
       kind: 'correct',
-      rationale: 'รวมก้อนที่มองเห็นและก้อนที่ซ่อนอยู่ข้างใต้เพื่อรองรับทั้งหมด',
+      rationale: 'Includes all visible cubes plus the hidden support cubes underneath',
     },
     ...distractors.map<Choice>((d) => ({
       value: d.value,

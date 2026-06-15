@@ -32,6 +32,6 @@ export type JigsawPuzzle = {
 };
 
 export const DISTRACTOR_EXPLANATIONS: Record<DistractorKind | 'correct', string> = {
-  correct: '✓ ถูกต้อง: ชิ้นส่วนทั้งหมดประกอบกันได้พอดี ไม่มีช่องว่าง',
-  'wrong-cut': '✗ แนวตัดต่างกัน — เส้นต่อไม่ตรงกับชิ้นส่วน',
+  correct: '✓ Correct: All pieces fit together perfectly with no gaps',
+  'wrong-cut': '✗ Wrong cut — the join lines do not match the pieces',
 };

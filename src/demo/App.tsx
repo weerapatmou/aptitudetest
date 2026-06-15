@@ -309,9 +309,9 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
     {
       id: 'jigsaw-puzzle',
       title: 'Jigsaw Puzzle',
-      tagline: 'ประกอบชิ้นส่วน',
+      tagline: 'Spatial Reconstruction',
       description:
-        'ภาพถูกตัดออกเป็น 2–5 ชิ้นส่วน — ดูชิ้นส่วนที่กำหนดให้ แล้วเลือกว่าตัวเลือกไหนนำทุกชิ้นมาประกอบกันได้พอดีโดยไม่มีช่องว่างหรือทับกัน (Spatial Reconstruction: pieces are shown separately — find which assembled figure joins them perfectly).',
+        'A shape is cut into 2–5 pieces — study the given pieces, then choose which option assembles all of them together perfectly with no gaps or overlaps.',
       icon: (
         <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
           <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
