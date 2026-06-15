@@ -10,6 +10,7 @@ import { CubeCountingPuzzle } from '@/cube-counting-puzzle';
 import { RotatedBlockPuzzle } from '@/rotated-block-puzzle';
 import { FlipBoxPuzzle } from '@/flip-box-puzzle';
 import { FindingRotatedShapesPuzzle } from '@/finding-rotated-shapes-puzzle';
+import { JigsawPuzzle } from '@/jigsaw-puzzle';
 
 type Mode =
   | 'home'
@@ -23,7 +24,8 @@ type Mode =
   | 'cube-counting'
   | 'rotated-block'
   | 'flip-box'
-  | 'finding-rotated-shapes';
+  | 'finding-rotated-shapes'
+  | 'jigsaw-puzzle';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -42,6 +44,7 @@ function readMode(): Mode {
     raw === 'rotated-block' ||
     raw === 'flip-box' ||
     raw === 'finding-rotated-shapes' ||
+    raw === 'jigsaw-puzzle' ||
     raw === 'home'
   )
     return raw;
@@ -93,6 +96,9 @@ export function App() {
       )}
       {mode === 'finding-rotated-shapes' && (
         <FindingRotatedShapesPuzzle onHome={() => setMode('home')} />
+      )}
+      {mode === 'jigsaw-puzzle' && (
+        <JigsawPuzzle onHome={() => setMode('home')} />
       )}
     </div>
   );
@@ -296,6 +302,22 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
           <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="-9,-6 -2,-9 1,-2 -4,3 -8,1" />
             <path d="M 3 7 q 6 -2 6 -8 M 9 -1 l 0 -4 l -4 1" opacity={0.7} />
+          </g>
+        </svg>
+      ),
+    },
+    {
+      id: 'jigsaw-puzzle',
+      title: 'Jigsaw Puzzle',
+      tagline: 'ประกอบชิ้นส่วน',
+      description:
+        'ภาพถูกตัดออกเป็น 2–5 ชิ้นส่วน — ดูชิ้นส่วนที่กำหนดให้ แล้วเลือกว่าตัวเลือกไหนนำทุกชิ้นมาประกอบกันได้พอดีโดยไม่มีช่องว่างหรือทับกัน (Spatial Reconstruction: pieces are shown separately — find which assembled figure joins them perfectly).',
+      icon: (
+        <svg width={48} height={48} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="-9,-9 9,-9 9,9 -9,9" opacity={0.30} />
+            <polygon points="-7,-7 1,-7 -4,2" />
+            <polygon points="2,-5 7,1 1,7 -3,3" opacity={0.70} />
           </g>
         </svg>
       ),
