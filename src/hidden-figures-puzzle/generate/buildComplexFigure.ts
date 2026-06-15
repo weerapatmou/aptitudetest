@@ -47,7 +47,7 @@ function computeViewBox(segs: Segment[], pad = 15): string {
   return `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
 }
 
-function normalizeShape(pts: [number, number][], targetSize: number, rotAngle: number): Pt[] {
+export function normalizeShape(pts: [number, number][], targetSize: number, rotAngle: number): Pt[] {
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
@@ -238,5 +238,7 @@ export function buildComplexFigure(shape: ShapeDef, rng: Rng): ComplexFigure {
     segments: allSegs,
     hiddenSegmentCount,
     viewBox: computeViewBox(allSegs),
+    shapeRotAngle: rotAngle,
+    shapeTargetSize: targetSize,
   };
 }

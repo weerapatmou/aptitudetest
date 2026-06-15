@@ -234,6 +234,13 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
                 answer={answers[qIdx] ?? -1}
                 submitted={submitted}
                 onPick={(labelIdx) => handlePick(qIdx, labelIdx)}
+                wrongShape={
+                  submitted &&
+                  answers[qIdx] !== undefined &&
+                  answers[qIdx] !== question.correctIndex
+                    ? (session.simpleShapes[answers[qIdx]!]?.def ?? null)
+                    : null
+                }
               />
             ))}
           </div>

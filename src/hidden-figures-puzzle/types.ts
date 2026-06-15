@@ -19,6 +19,8 @@ export type ComplexFigure = {
   segments: Segment[];
   hiddenSegmentCount: number;
   viewBox: string;
+  shapeRotAngle: number;
+  shapeTargetSize: number;
 };
 
 export type HiddenQuestion = {

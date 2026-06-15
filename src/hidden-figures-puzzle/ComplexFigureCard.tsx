@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import type { HiddenQuestion } from './types';
+import type { HiddenQuestion, ShapeDef } from './types';
+import { normalizeShape } from './generate/buildComplexFigure';
 
 const LABELS = ['A', 'B', 'C', 'D', 'E'] as const;
 
@@ -9,9 +10,10 @@ type Props = {
   answer: number;
   submitted: boolean;
   onPick: (labelIdx: number) => void;
+  wrongShape?: ShapeDef | null;
 };
 
-export function ComplexFigureCard({ question, qIdx, answer, submitted, onPick }: Props) {
+export function ComplexFigureCard({ question, qIdx, answer, submitted, onPick, wrongShape }: Props) {
   const { complexFigure, correctIndex } = question;
   const isAnswered = answer !== -1;
 
@@ -45,6 +47,27 @@ export function ComplexFigureCard({ question, qIdx, answer, submitted, onPick }:
               />
             );
           })}
+          {wrongShape && submitted && (() => {
+            const pts = normalizeShape(
+              wrongShape.points,
+              complexFigure.shapeTargetSize,
+              complexFigure.shapeRotAngle,
+            );
+            return pts.map((p, i) => {
+              const next = pts[(i + 1) % pts.length]!;
+              return (
+                <line
+                  key={`w${i}`}
+                  x1={p[0]} y1={p[1]} x2={next[0]} y2={next[1]}
+                  stroke="var(--color-wrong)"
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  strokeLinecap="round"
+                  opacity={0.7}
+                />
+              );
+            });
+          })()}
         </svg>
       </div>
 

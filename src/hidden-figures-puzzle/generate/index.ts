@@ -10,13 +10,10 @@ import { SHAPE_POOL } from './shapes';
 import { buildComplexFigure } from './buildComplexFigure';
 
 const LABELS = ['A', 'B', 'C', 'D', 'E'] as const;
-const MAX_PER_CAT = 2;
+const MAX_PER_CAT = 1;
 
 function vertexCategory(n: number): number {
-  if (n <= 3) return 3;
-  if (n === 4) return 4;
-  if (n <= 6) return 5;
-  return 7;
+  return n; // exact vertex count — shapes share a category only if identical vertex count
 }
 
 function pickDiverseShapes(pool: ShapeDef[], rng: Rng): ShapeDef[] {
