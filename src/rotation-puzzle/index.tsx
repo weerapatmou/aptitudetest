@@ -12,6 +12,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { formatDuration, useTimer } from './hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -559,17 +560,6 @@ function ScoreReadout({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx={0} cy={0} r={10} />
-        <path d="M -7 -2 L 7 -2 L 4 -5 M 7 -2 L 4 1" />
-        <path d="M 7 4 L -7 4 L -4 7 M -7 4 L -4 1" opacity={0.55} />
-      </g>
-    </svg>
-  );
-}
 
 function CheckIcon() {
   return (

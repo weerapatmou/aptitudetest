@@ -12,6 +12,7 @@ import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -308,15 +309,5 @@ function ScoreReadout({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="-9,-9 9,-9 9,9 -9,9" opacity={0.45} />
-        <polygon points="-7,-3 3,-3 -2,7" />
-      </g>
-    </svg>
-  );
-}
 
 export default PolygonAssemblyPuzzle;

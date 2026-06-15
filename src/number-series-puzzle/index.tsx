@@ -17,6 +17,7 @@ import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 const COUNT_PRESETS = [5, 10, 20, 50] as const;
@@ -981,32 +982,6 @@ function SummaryScreen({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g
-        stroke="var(--accent)"
-        strokeWidth={1.6}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <text
-          x={0}
-          y={4}
-          textAnchor="middle"
-          fontFamily="ui-monospace, monospace"
-          fontSize={10}
-          fill="var(--accent)"
-          stroke="none"
-        >
-          n!
-        </text>
-        <circle cx={0} cy={0} r={10} />
-      </g>
-    </svg>
-  );
-}
 
 function CheckIcon() {
   return (

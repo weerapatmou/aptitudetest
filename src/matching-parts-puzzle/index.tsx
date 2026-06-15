@@ -12,6 +12,7 @@ import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -441,16 +442,6 @@ function ScoreReadout({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="-9,-2 -1,-2 -5,7" />
-        <polygon points="1,-2 9,-2 5,7" opacity={0.55} />
-      </g>
-    </svg>
-  );
-}
 
 function CheckIcon() {
   return (

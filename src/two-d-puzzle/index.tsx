@@ -13,6 +13,7 @@ import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['a', 'b', 'c', 'd'] as const;
 const COUNT_PRESETS = [10, 20, 30, 40] as const;
@@ -723,15 +724,5 @@ function SummaryScreen({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M -9 -9 H 3 V -3 H 9 V 9 H -9 Z" />
-        <path d="M 3 -3 H 9 V -9 H 3 Z" opacity={0.5} />
-      </g>
-    </svg>
-  );
-}
 
 export default TwoDPuzzle;

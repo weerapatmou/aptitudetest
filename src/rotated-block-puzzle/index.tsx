@@ -15,6 +15,7 @@ import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [10, 15, 20, 30] as const;
@@ -702,15 +703,5 @@ function SummaryScreen({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.4} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M 0 -9 L 9 -4 L 9 5 L 0 10 L -9 5 L -9 -4 Z" />
-        <path d="M 0 -9 L 0 1 M 0 1 L 9 -4 M 0 1 L -9 -4" opacity={0.55} />
-      </g>
-    </svg>
-  );
-}
 
 export default RotatedBlockPuzzle;

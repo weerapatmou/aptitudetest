@@ -11,6 +11,7 @@ import { useLocalStorage } from '@/rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 const COUNT_PRESETS = [10, 15, 20, 30] as const;
@@ -624,15 +625,5 @@ function SummaryScreen({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.4} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="-9,-6 -2,-9 1,-2 -4,2 -8,0" />
-        <path d="M 4 6 q 5 -2 5 -7 M 9 -1 l 0 -3 l -3 1" opacity={0.7} />
-      </g>
-    </svg>
-  );
-}
 
 export default FindingRotatedShapesPuzzle;

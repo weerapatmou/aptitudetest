@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { LogoMark } from '@/shared/LogoMark';
 import { RotationPuzzle } from '@/rotation-puzzle';
 import { MatchingPartsPuzzle } from '@/matching-parts-puzzle';
 import { PolygonAssemblyPuzzle } from '@/polygon-assembly-puzzle';
@@ -415,12 +416,7 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
     <div className="min-h-full bg-instrument">
       <header className="border-b border-border bg-bg/85 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-4 flex items-center gap-3">
-          <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-            <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="-9,-2 -1,-2 -5,7" />
-              <polygon points="1,-2 9,-2 5,7" opacity={0.55} />
-            </g>
-          </svg>
+          <LogoMark />
           <div className="font-mono text-xs uppercase tracking-[0.2em] text-text-dim leading-tight">
             <div className="text-text">TG Aptitude Practice</div>
             <div className="text-[10px] text-text-dim/70">Select a test to begin</div>

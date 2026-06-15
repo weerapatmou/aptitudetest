@@ -9,6 +9,7 @@ import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
+import { LogoMark } from '@/shared/LogoMark';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 
@@ -358,16 +359,5 @@ function ScoreReadout({
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width={28} height={28} viewBox="-12 -12 24 24" aria-hidden="true">
-      <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="-8,-8 8,-8 8,8 -8,8" opacity={0.35} />
-        <polygon points="-6,-6 2,-6 -2,2" />
-        <polygon points="2,-4 6,3 -2,6" opacity={0.65} />
-      </g>
-    </svg>
-  );
-}
 
 export default JigsawPuzzle;
