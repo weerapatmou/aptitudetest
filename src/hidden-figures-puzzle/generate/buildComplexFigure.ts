@@ -16,16 +16,8 @@ function scalePt([x, y]: Pt, f: number): Pt { return [x * f, y * f]; }
 function subPt([ax, ay]: Pt, [bx, by]: Pt): Pt { return [ax - bx, ay - by]; }
 function lenPt([x, y]: Pt): number { return Math.sqrt(x * x + y * y); }
 function normPt(p: Pt): Pt { const l = lenPt(p) || 1; return [p[0] / l, p[1] / l]; }
-function midPt(a: Pt, b: Pt): Pt { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
 function lerpPt(a: Pt, b: Pt, t: number): Pt {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-}
-
-function centroid(pts: Pt[]): Pt {
-  return [
-    pts.reduce((s, p) => s + p[0], 0) / pts.length,
-    pts.reduce((s, p) => s + p[1], 0) / pts.length,
-  ];
 }
 
 function seg(a: Pt, b: Pt): Segment {
@@ -57,59 +49,39 @@ export function normalizeShape(pts: [number, number][], targetSize: number, rotA
   return pts.map(([x, y]) => rotPt([(x - cx) * scale, (y - cy) * scale], rotAngle));
 }
 
-// ── Outward normal for edge A→B (away from shape centroid) ───────────────────
+// ── Strategy A: through-lines ─────────────────────────────────────────────────
+// Lines cross from one edge to another and extend past both endpoints.
+// They start/end at edge midpoints (not vertices) so they can never close into
+// a recognizable polygon — unlike triangle attachments which share a hidden edge.
 
-function outwardNormal(a: Pt, b: Pt, cen: Pt): Pt {
-  const edge = subPt(b, a);
-  const perp: Pt = [-edge[1], edge[0]];
-  const n = normPt(perp);
-  const mid = midPt(a, b);
-  const toCen = subPt(cen, mid);
-  return n[0] * toCen[0] + n[1] * toCen[1] < 0 ? n : [-n[0], -n[1]];
-}
-
-// ── Attachment helpers ────────────────────────────────────────────────────────
-
-function attachTriangle(a: Pt, b: Pt, normal: Pt, height: number): Segment[] {
-  const apex = addPt(midPt(a, b), scalePt(normal, height));
-  return [seg(a, apex), seg(b, apex)];
-}
-
-function attachSkinnyTriangle(a: Pt, b: Pt, normal: Pt, height: number): Segment[] {
-  const along = normPt(subPt(b, a));
-  const edgeLen = lenPt(subPt(b, a));
-  const apex = addPt(a, addPt(scalePt(along, edgeLen * 0.7), scalePt(normal, height * 0.6)));
-  return [seg(a, apex), seg(b, apex)];
-}
-
-function attachWideTriangle(a: Pt, b: Pt, normal: Pt, height: number): Segment[] {
-  // Apex shifted sideways (flatter angle) — 2 segments only, never closes into a quad
-  const along = normPt(subPt(b, a));
-  const edgeLen = lenPt(subPt(b, a));
-  const apex = addPt(midPt(a, b), addPt(scalePt(along, edgeLen * 0.35), scalePt(normal, height * 0.45)));
-  return [seg(a, apex), seg(b, apex)];
-}
-
-// ── Strategy A: edge-attach (triangle variants only — no closed quads) ────────
-
-function strategyEdgeAttach(pts: Pt[], cen: Pt, rng: Rng): Segment[] {
+function strategyThroughLines(pts: Pt[], rng: Rng): Segment[] {
   const segs: Segment[] = [];
   const n = pts.length;
-  for (let i = 0; i < n; i++) {
-    if (!rng.bool(0.70)) continue;
-    const a = pts[i]!;
-    const b = pts[(i + 1) % n]!;
-    const normal = outwardNormal(a, b, cen);
-    const edgeLen = lenPt(subPt(b, a));
-    const height = rng.range(0.35, 0.75) * edgeLen;
-    const kind = rng.next();
-    if (kind < 0.55) {
-      segs.push(...attachTriangle(a, b, normal, height));
-    } else if (kind < 0.80) {
-      segs.push(...attachSkinnyTriangle(a, b, normal, height));
-    } else {
-      segs.push(...attachWideTriangle(a, b, normal, height));
-    }
+  const lineCount = rng.int(2, 4);
+  const usedPairs = new Set<string>();
+
+  for (let attempt = 0; attempt < lineCount * 3 && segs.length < lineCount; attempt++) {
+    const e1 = rng.int(0, n);
+    // Triangles: 1 edge gap is fine (crosses through). Quads+: need ≥2 to actually traverse the interior.
+    const minSep = n <= 3 ? 1 : 2;
+    const sep = rng.int(minSep, Math.max(minSep + 1, Math.floor(n / 2) + 1));
+    const e2 = (e1 + sep) % n;
+
+    const pairKey = `${Math.min(e1, e2)}-${Math.max(e1, e2)}`;
+    if (usedPairs.has(pairKey)) continue;
+    usedPairs.add(pairKey);
+
+    const t1 = rng.range(0.2, 0.8);
+    const t2 = rng.range(0.2, 0.8);
+    const p1 = lerpPt(pts[e1]!, pts[(e1 + 1) % n]!, t1);
+    const p2 = lerpPt(pts[e2]!, pts[(e2 + 1) % n]!, t2);
+
+    const dir = normPt(subPt(p2, p1));
+    const ext = rng.range(15, 30);
+    segs.push(seg(
+      subPt(p1, scalePt(dir, ext)),
+      addPt(p2, scalePt(dir, ext)),
+    ));
   }
   return segs;
 }
@@ -133,15 +105,13 @@ function strategyRadialFan(pts: Pt[], rng: Rng): Segment[] {
   const vi = rng.int(0, n);
   const v = pts[vi]!;
   const segs: Segment[] = [];
-  // Pick 2–3 non-adjacent edges to draw lines to
   const fanCount = rng.int(2, Math.min(4, n - 1));
   for (let f = 0; f < fanCount; f++) {
-    const edgeIdx = (vi + 2 + f) % n; // skip the two adjacent edges
+    const edgeIdx = (vi + 2 + f) % n;
     const a = pts[edgeIdx]!;
     const b = pts[(edgeIdx + 1) % n]!;
     const t = rng.range(0.25, 0.75);
-    const p = lerpPt(a, b, t);
-    segs.push(seg(v, p));
+    segs.push(seg(v, lerpPt(a, b, t)));
   }
   return segs;
 }
@@ -156,14 +126,12 @@ function strategyOuterFrame(pts: Pt[], rng: Rng): Segment[] {
     const b = pts[(i + 1) % n]!;
     const unit = normPt(subPt(b, a));
     const ext = rng.range(12, 25);
-    const a2: Pt = subPt(a, scalePt(unit, ext));
-    const b2: Pt = addPt(b, scalePt(unit, ext));
-    segs.push(seg(a2, b2));
+    segs.push(seg(subPt(a, scalePt(unit, ext)), addPt(b, scalePt(unit, ext))));
   }
   return segs;
 }
 
-// ── Interior chords (shared across strategies) ────────────────────────────────
+// ── Interior chords (shared supplement) ──────────────────────────────────────
 
 function addInteriorChords(pts: Pt[], rng: Rng, maxChords: number): Segment[] {
   const segs: Segment[] = [];
@@ -181,57 +149,47 @@ function addInteriorChords(pts: Pt[], rng: Rng, maxChords: number): Segment[] {
 // ── Main builder ─────────────────────────────────────────────────────────────
 
 export function buildComplexFigure(shape: ShapeDef, rng: Rng): ComplexFigure {
-  // Step 1: normalize — wider rotation (±30°), variable target size (65–90)
   const rotAngle = rng.range(-30, 30) * (Math.PI / 180);
   const targetSize = rng.range(65, 90);
   const pts = normalizeShape(shape.points, targetSize, rotAngle);
-  const cen = centroid(pts);
 
-  // Step 2: hidden shape edges (always first — these get highlighted on submit)
+  // Hidden shape edges are always first — highlighted on submit
   const hiddenSegs = polySegs(pts);
   const hiddenSegmentCount = hiddenSegs.length;
   const allSegs: Segment[] = [...hiddenSegs];
 
-  // Step 3: pick distractor strategy via weighted dice
-  // Bounding rectangle is only safe for non-quads (a rect around a quad looks like another quad).
+  // Bounding rect is only safe for non-quads (a rect around a quad looks like another quad)
   const dice = rng.next();
   const isQuad = pts.length === 4;
 
-  if (dice < 0.40) {
-    // Strategy A: edge-attach (triangle variants only)
-    allSegs.push(...strategyEdgeAttach(pts, cen, rng));
+  if (dice < 0.35) {
+    // Strategy A: through-lines cross the shape interior
+    allSegs.push(...strategyThroughLines(pts, rng));
     allSegs.push(...addInteriorChords(pts, rng, 2));
 
-  } else if (dice < 0.60) {
-    // Strategy A + B: edge-attach AND bounding rectangle (quads fall back to radial fan)
-    allSegs.push(...strategyEdgeAttach(pts, cen, rng));
-    if (!isQuad) {
-      allSegs.push(...strategyBoundingRect(pts));
-      allSegs.push(...addInteriorChords(pts, rng, 1));
-    } else {
-      allSegs.push(...strategyRadialFan(pts, rng));
-      allSegs.push(...addInteriorChords(pts, rng, 2));
-    }
+  } else if (dice < 0.55) {
+    // Strategy A + D: through-lines + extended outer frame
+    allSegs.push(...strategyThroughLines(pts, rng));
+    allSegs.push(...strategyOuterFrame(pts, rng));
 
-  } else if (dice < 0.75) {
-    // Strategy B only: bounding rectangle (quads use radial fan instead)
-    if (!isQuad) {
-      allSegs.push(...strategyBoundingRect(pts));
-      allSegs.push(...addInteriorChords(pts, rng, 3));
-    } else {
-      allSegs.push(...strategyRadialFan(pts, rng));
-      allSegs.push(...addInteriorChords(pts, rng, 2));
-    }
+  } else if (dice < 0.70) {
+    // Strategy D only: outer frame + interior chords
+    allSegs.push(...strategyOuterFrame(pts, rng));
+    allSegs.push(...addInteriorChords(pts, rng, 3));
 
-  } else if (dice < 0.88) {
-    // Strategy C: radial fan from one vertex
+  } else if (dice < 0.85) {
+    // Strategy C: radial fan + through-lines
     allSegs.push(...strategyRadialFan(pts, rng));
-    allSegs.push(...addInteriorChords(pts, rng, 2));
+    allSegs.push(...strategyThroughLines(pts, rng));
 
   } else {
-    // Strategy D: outer frame extension (edges elongated past vertices)
-    allSegs.push(...strategyOuterFrame(pts, rng));
-    allSegs.push(...addInteriorChords(pts, rng, 2));
+    // Strategy B (non-quads) / radial fan (quads) + through-lines
+    if (!isQuad) {
+      allSegs.push(...strategyBoundingRect(pts));
+    } else {
+      allSegs.push(...strategyRadialFan(pts, rng));
+    }
+    allSegs.push(...strategyThroughLines(pts, rng));
   }
 
   return {
