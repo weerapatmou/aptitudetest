@@ -58,7 +58,49 @@ export type OuterShape =
   | { kind: 'pinwheel'; vertices: Pt[] }
   | { kind: 'combBar'; vertices: Pt[] }
   | { kind: 'unevenStar'; vertices: Pt[] }
-  | { kind: 'pennant'; vertices: Pt[] };
+  | { kind: 'pennant'; vertices: Pt[] }
+  // Arrow family
+  | { kind: 'arrowFat'; vertices: Pt[] }
+  | { kind: 'arrowThin'; vertices: Pt[] }
+  | { kind: 'arrowBent'; vertices: Pt[] }
+  | { kind: 'arrowDouble'; vertices: Pt[] }
+  | { kind: 'notchedArrow'; vertices: Pt[] }
+  // Star family
+  | { kind: 'starFour'; vertices: Pt[] }
+  | { kind: 'starSix'; vertices: Pt[] }
+  | { kind: 'starSeven'; vertices: Pt[] }
+  | { kind: 'starEight'; vertices: Pt[] }
+  // Letter / symbol shapes
+  | { kind: 'tShape'; vertices: Pt[] }
+  | { kind: 'zShape'; vertices: Pt[] }
+  | { kind: 'fShape'; vertices: Pt[] }
+  | { kind: 'crossShape'; vertices: Pt[] }
+  | { kind: 'boltShape'; vertices: Pt[] }
+  | { kind: 'lShapeWide'; vertices: Pt[] }
+  // Organic / natural shapes
+  | { kind: 'leafShape'; vertices: Pt[] }
+  | { kind: 'crescentShape'; vertices: Pt[] }
+  | { kind: 'cloudShape'; vertices: Pt[] }
+  | { kind: 'dropletLong'; vertices: Pt[] }
+  | { kind: 'dropletFat'; vertices: Pt[] }
+  | { kind: 'blobAsym'; vertices: Pt[] }
+  // Geometric variants
+  | { kind: 'trapezoidRight'; vertices: Pt[] }
+  | { kind: 'trapezoidSkew'; vertices: Pt[] }
+  | { kind: 'parallelogramAsym'; vertices: Pt[] }
+  | { kind: 'shieldShape'; vertices: Pt[] }
+  | { kind: 'homeShape'; vertices: Pt[] }
+  | { kind: 'diamondAsym'; vertices: Pt[] }
+  | { kind: 'rectangleWave'; vertices: Pt[] }
+  | { kind: 'rectangleStep'; vertices: Pt[] }
+  // Gear / mechanical
+  | { kind: 'gearFew'; vertices: Pt[] }
+  | { kind: 'gearMany'; vertices: Pt[] }
+  | { kind: 'sawblade'; vertices: Pt[] }
+  | { kind: 'ratchet'; vertices: Pt[] }
+  // Extended polygon variants
+  | { kind: 'irregularOctagon'; vertices: Pt[] }
+  | { kind: 'concavePolygon'; vertices: Pt[] };
 
 export type Figure = {
   outer: OuterShape;
