@@ -1,11 +1,21 @@
 import type { Polygon, Pt, ScatteredPiece } from '../types';
 import type { Rng } from '../../rotation-puzzle/generate/rng';
-import { centroid, polygonBounds } from '../../rotation-puzzle/generate/geometry';
+import { centroid, polygonBounds, pointInPolygon } from '../../rotation-puzzle/generate/geometry';
 import {
   pickBoundaryPointAt,
   signedArea,
   splitPolygonByChord,
 } from '../../matching-parts-puzzle/generate/cuts';
+
+/** Returns false if any sampled point along the chord p1→p2 lies outside poly. */
+function isChordInsidePoly(poly: Polygon, p1: Pt, p2: Pt, samples = 5): boolean {
+  for (let i = 1; i <= samples; i++) {
+    const t = i / (samples + 1);
+    const pt = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+    if (!pointInPolygon(pt, poly)) return false;
+  }
+  return true;
+}
 
 export function polygonArea(poly: Polygon): number {
   return Math.abs(signedArea(poly));
@@ -24,6 +34,7 @@ function attemptCut(poly: Polygon, rng: Rng): [Polygon, Polygon] | null {
     const b1 = pickBoundaryPointAt(poly, t1);
     const b2 = pickBoundaryPointAt(poly, t2);
     if (b1.edgeIdx === b2.edgeIdx) continue;
+    if (!isChordInsidePoly(poly, b1.pt, b2.pt)) continue;
     const pieces = splitPolygonByChord(poly, b1, b2);
     if (pieces[0].length < 3 || pieces[1].length < 3) continue;
     const a1 = polygonArea(pieces[0]);

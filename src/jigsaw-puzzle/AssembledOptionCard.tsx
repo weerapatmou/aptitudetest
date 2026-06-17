@@ -52,6 +52,7 @@ export function AssembledOptionCard({
   }, [targetPolygon]);
 
   const targetPath = useMemo(() => pathFromPolygon(targetPolygon), [targetPolygon]);
+  const clipId = `jigsaw-clip-${letter}`;
 
   return (
     <motion.button
@@ -107,6 +108,12 @@ export function AssembledOptionCard({
           className="w-full h-full overflow-visible"
           aria-label={`Option ${letter} assembled`}
         >
+          <defs>
+            <clipPath id={clipId}>
+              <path d={targetPath} />
+            </clipPath>
+          </defs>
+
           {/* Target outline (shown on reveal) */}
           {revealed && (
             <path
@@ -121,14 +128,16 @@ export function AssembledOptionCard({
             />
           )}
 
-          {/* Assembled pieces */}
-          {option.pieces.map((piece, i) => (
-            <AssembledPiece
-              key={i}
-              piece={piece}
-              revealed={revealed}
-            />
-          ))}
+          {/* Assembled pieces clipped to target shape */}
+          <g clipPath={`url(#${clipId})`}>
+            {option.pieces.map((piece, i) => (
+              <AssembledPiece
+                key={i}
+                piece={piece}
+                revealed={revealed}
+              />
+            ))}
+          </g>
         </svg>
       </div>
       {!compact && (
