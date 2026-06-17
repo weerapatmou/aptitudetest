@@ -100,7 +100,37 @@ export type OuterShape =
   | { kind: 'ratchet'; vertices: Pt[] }
   // Extended polygon variants
   | { kind: 'irregularOctagon'; vertices: Pt[] }
-  | { kind: 'concavePolygon'; vertices: Pt[] };
+  | { kind: 'concavePolygon'; vertices: Pt[] }
+  // Round 2 – Arrow / Pointer
+  | { kind: 'arrowHook'; vertices: Pt[] }
+  | { kind: 'arrowWide'; vertices: Pt[] }
+  | { kind: 'bannerArrow'; vertices: Pt[] }
+  // Round 2 – Letter / Symbol
+  | { kind: 'eShape'; vertices: Pt[] }
+  | { kind: 'rShape'; vertices: Pt[] }
+  | { kind: 'pShape'; vertices: Pt[] }
+  | { kind: 'yShape'; vertices: Pt[] }
+  | { kind: 'vShape'; vertices: Pt[] }
+  | { kind: 'nShape'; vertices: Pt[] }
+  | { kind: 'uShape'; vertices: Pt[] }
+  // Round 2 – Organic / Natural
+  | { kind: 'fishShape'; vertices: Pt[] }
+  | { kind: 'mushroomShape'; vertices: Pt[] }
+  | { kind: 'waveRibbon'; vertices: Pt[] }
+  | { kind: 'fanShape'; vertices: Pt[] }
+  | { kind: 'pawShape'; vertices: Pt[] }
+  | { kind: 'speechBubble'; vertices: Pt[] }
+  // Round 2 – Geometric / Architectural
+  | { kind: 'archShape'; vertices: Pt[] }
+  | { kind: 'keystone'; vertices: Pt[] }
+  | { kind: 'bracketShape'; vertices: Pt[] }
+  | { kind: 'crenellated'; vertices: Pt[] }
+  | { kind: 'fanSector'; vertices: Pt[] }
+  // Round 2 – Tool / Industrial
+  | { kind: 'keyShape'; vertices: Pt[] }
+  | { kind: 'wrenchHead'; vertices: Pt[] }
+  | { kind: 'zigzagShape'; vertices: Pt[] }
+  | { kind: 'hexBolt'; vertices: Pt[] };
 
 export type Figure = {
   outer: OuterShape;

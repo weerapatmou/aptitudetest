@@ -59,6 +59,36 @@ const OUTER_KINDS = [
   // Extended polygon variants
   'irregularOctagon',
   'concavePolygon',
+  // Round 2 – Arrow / Pointer
+  'arrowHook',
+  'arrowWide',
+  'bannerArrow',
+  // Round 2 – Letter / Symbol
+  'eShape',
+  'rShape',
+  'pShape',
+  'yShape',
+  'vShape',
+  'nShape',
+  'uShape',
+  // Round 2 – Organic / Natural
+  'fishShape',
+  'mushroomShape',
+  'waveRibbon',
+  'fanShape',
+  'pawShape',
+  'speechBubble',
+  // Round 2 – Geometric / Architectural
+  'archShape',
+  'keystone',
+  'bracketShape',
+  'crenellated',
+  'fanSector',
+  // Round 2 – Tool / Industrial
+  'keyShape',
+  'wrenchHead',
+  'zigzagShape',
+  'hexBolt',
 ] as const;
 
 export type OuterKind = (typeof OUTER_KINDS)[number];
@@ -139,6 +169,36 @@ export function generateOuter(kind: OuterKind, rng: Rng): OuterShape {
     // Extended polygon variants
     case 'irregularOctagon':   return generateIrregularOctagon(rng);
     case 'concavePolygon':     return generateConcavePolygon(rng);
+    // Round 2 – Arrow / Pointer
+    case 'arrowHook':          return generateArrowHook(rng);
+    case 'arrowWide':          return generateArrowWide(rng);
+    case 'bannerArrow':        return generateBannerArrow(rng);
+    // Round 2 – Letter / Symbol
+    case 'eShape':             return generateEShape(rng);
+    case 'rShape':             return generateRShape(rng);
+    case 'pShape':             return generatePShape(rng);
+    case 'yShape':             return generateYShape(rng);
+    case 'vShape':             return generateVShape(rng);
+    case 'nShape':             return generateNShape(rng);
+    case 'uShape':             return generateUShape(rng);
+    // Round 2 – Organic / Natural
+    case 'fishShape':          return generateFishShape(rng);
+    case 'mushroomShape':      return generateMushroomShape(rng);
+    case 'waveRibbon':         return generateWaveRibbon(rng);
+    case 'fanShape':           return generateFanShape(rng);
+    case 'pawShape':           return generatePawShape(rng);
+    case 'speechBubble':       return generateSpeechBubble(rng);
+    // Round 2 – Geometric / Architectural
+    case 'archShape':          return generateArchShape(rng);
+    case 'keystone':           return generateKeystone(rng);
+    case 'bracketShape':       return generateBracketShape(rng);
+    case 'crenellated':        return generateCrenellated(rng);
+    case 'fanSector':          return generateFanSector(rng);
+    // Round 2 – Tool / Industrial
+    case 'keyShape':           return generateKeyShape(rng);
+    case 'wrenchHead':         return generateWrenchHead(rng);
+    case 'zigzagShape':        return generateZigzagShape(rng);
+    case 'hexBolt':            return generateHexBolt(rng);
   }
 }
 
@@ -1257,6 +1317,674 @@ function generateConcavePolygon(rng: Rng): OuterShape {
   pts[opp] = { x: pts[opp]!.x * 1.25, y: pts[opp]!.y * 1.25 };
   return { kind: 'concavePolygon', vertices: pts };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 2 – NEW SHAPE GENERATORS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Arrow / Pointer ─────────────────────────────────────────────────────────
+
+function generateArrowHook(rng: Rng): OuterShape {
+  // L-shaped hook arrow: shaft goes right, tip curves up.
+  const sw      = 16 + rng.range(-2, 3);
+  const hLen    = 52 + rng.range(-5, 5);
+  const vLen    = 44 + rng.range(-5, 5);
+  const headW   = 32 + rng.range(-3, 4);
+  const headH   = 26 + rng.range(-3, 3);
+  const asym    = rng.range(4, 9);
+  const pts: Pt[] = [
+    { x: -hLen,        y: sw + asym },   // back bottom-left
+    { x: -hLen,        y: -sw },         // back top-left
+    { x: sw,           y: -sw },         // inner corner top
+    { x: sw,           y: -vLen },       // vertical top-left
+    { x: -headW,       y: -vLen },       // head base-left
+    { x: 0,            y: -(vLen + headH) }, // tip
+    { x: headW * 0.9,  y: -vLen },       // head base-right (asymmetric)
+    { x: sw + headW * 0.05, y: -vLen },  // overlap to close neck
+    { x: sw + headW * 0.05, y: 0 },      // inner corner bottom
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'arrowHook', vertices };
+}
+
+function generateArrowWide(rng: Rng): OuterShape {
+  // Very wide stubby arrowhead — almost no shaft, large head.
+  const tipX    = 70 + rng.range(-4, 4);
+  const headH   = 55 + rng.range(-4, 5);
+  const neckX   = -10 + rng.range(-5, 5);
+  const shaftH  = 16 + rng.range(-2, 3);
+  const shaftL  = 30 + rng.range(-4, 4);
+  const asym    = rng.range(5, 12);
+  const pts: Pt[] = [
+    { x: tipX,          y: asym },
+    { x: neckX,         y: headH },
+    { x: neckX,         y: shaftH },
+    { x: -(shaftL),     y: shaftH + rng.range(0, 4) },
+    { x: -(shaftL),     y: -shaftH },
+    { x: neckX,         y: -headH * 0.88 },
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'arrowWide', vertices };
+}
+
+function generateBannerArrow(rng: Rng): OuterShape {
+  // Arrow with wavy pennant-notch tail.
+  const len     = 75 + rng.range(-5, 5);
+  const halfH   = 36 + rng.range(-3, 4);
+  const shaftH  = 14 + rng.range(-2, 2);
+  const neckX   = 5 + rng.range(-5, 5);
+  const notch1Y = shaftH + rng.range(4, 10);
+  const notch2Y = -(shaftH + rng.range(4, 10));
+  const tailLen = 25 + rng.range(-4, 4);
+  const pts: Pt[] = [
+    { x: len,        y: 0 },
+    { x: neckX,      y: halfH },
+    { x: neckX,      y: shaftH },
+    { x: -tailLen * 0.5, y: notch1Y },
+    { x: -len * 0.65, y: shaftH * 0.5 },
+    { x: -len * 0.65, y: -shaftH * 0.5 },
+    { x: -tailLen * 0.5, y: notch2Y },
+    { x: neckX,      y: -shaftH },
+    { x: neckX,      y: -halfH * 0.9 },
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'bannerArrow', vertices };
+}
+
+// ─── Letter / Symbol shapes ───────────────────────────────────────────────────
+
+function generateEShape(rng: Rng): OuterShape {
+  // Letter E: vertical stem + 3 horizontal bars (top/mid/bottom, different lengths).
+  const stemH    = 80 + rng.range(-5, 5);
+  const thick    = 16 + rng.range(-2, 3);
+  const topBar   = 55 + rng.range(-5, 5);
+  const midBar   = 40 + rng.range(-5, 5);
+  const botBar   = 50 + rng.range(-5, 5);
+  const midY     = rng.range(-5, 5);
+  const pts: Pt[] = [
+    { x: 0,       y: -stemH / 2 },
+    { x: topBar,  y: -stemH / 2 },
+    { x: topBar,  y: -stemH / 2 + thick },
+    { x: thick,   y: -stemH / 2 + thick },
+    { x: thick,   y: midY - thick / 2 },
+    { x: midBar,  y: midY - thick / 2 },
+    { x: midBar,  y: midY + thick / 2 },
+    { x: thick,   y: midY + thick / 2 },
+    { x: thick,   y: stemH / 2 - thick },
+    { x: botBar,  y: stemH / 2 - thick },
+    { x: botBar,  y: stemH / 2 },
+    { x: 0,       y: stemH / 2 },
+  ];
+  const cx = thick / 2;
+  const centered = pts.map((p) => ({ x: p.x - cx, y: p.y }));
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = centered.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'eShape', vertices };
+}
+
+function generateRShape(rng: Rng): OuterShape {
+  // Letter R: stem + bump on upper half + diagonal leg.
+  const stemH   = 80 + rng.range(-5, 5);
+  const thick   = 16 + rng.range(-2, 3);
+  const bumpW   = 38 + rng.range(-4, 4);
+  const bumpH   = stemH * (0.46 + rng.range(-0.04, 0.04));
+  const legOut  = 30 + rng.range(-3, 5);   // how far leg extends right
+  const asym    = rng.range(3, 8);
+  const pts: Pt[] = [
+    { x: 0,            y: -stemH / 2 },
+    { x: bumpW,        y: -stemH / 2 },
+    { x: bumpW,        y: -stemH / 2 + thick },
+    { x: thick,        y: -stemH / 2 + thick },
+    { x: thick,        y: -stemH / 2 + bumpH - thick },
+    { x: bumpW - asym, y: -stemH / 2 + bumpH - thick },
+    { x: bumpW + legOut, y: stemH / 2 },
+    { x: bumpW + legOut - thick - asym, y: stemH / 2 },
+    { x: bumpW,        y: -stemH / 2 + bumpH },
+    { x: 0,            y: -stemH / 2 + bumpH },
+  ];
+  const cx = thick / 2;
+  const centered = pts.map((p) => ({ x: p.x - cx, y: p.y }));
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = centered.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'rShape', vertices };
+}
+
+function generatePShape(rng: Rng): OuterShape {
+  // Letter P: stem + one bump on upper half.
+  const stemH  = 78 + rng.range(-5, 5);
+  const thick  = 16 + rng.range(-2, 3);
+  const bumpW  = 42 + rng.range(-4, 4);
+  const bumpH  = stemH * (0.50 + rng.range(-0.05, 0.05));
+  const asym   = rng.range(5, 12);
+  const pts: Pt[] = [
+    { x: 0,            y: -stemH / 2 },
+    { x: bumpW,        y: -stemH / 2 },
+    { x: bumpW + asym, y: -stemH / 2 + bumpH * 0.5 },
+    { x: bumpW,        y: -stemH / 2 + bumpH },
+    { x: thick,        y: -stemH / 2 + bumpH },
+    { x: thick,        y:  stemH / 2 },
+    { x: 0,            y:  stemH / 2 },
+    { x: 0,            y: -stemH / 2 },
+  ];
+  const cx = thick / 2;
+  const centered = pts.map((p) => ({ x: p.x - cx, y: p.y }));
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = centered.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'pShape', vertices };
+}
+
+function generateYShape(rng: Rng): OuterShape {
+  // Letter Y: two angled upper arms (unequal lengths) + lower stem.
+  const stemH   = 40 + rng.range(-4, 4);
+  const sw      = 14 + rng.range(-2, 2);
+  const leftLen = 52 + rng.range(-5, 5);
+  const rightLen = 38 + rng.range(-5, 5);
+  const leftAng = Math.PI * (0.38 + rng.range(-0.04, 0.04));
+  const rightAng = Math.PI * (0.60 + rng.range(-0.04, 0.04));
+  const lx = leftLen * Math.cos(leftAng), ly = -leftLen * Math.sin(leftAng);
+  const rx = rightLen * Math.cos(rightAng), ry = -rightLen * Math.sin(rightAng);
+  const pts: Pt[] = [
+    { x: sw / 2,  y: 0 },
+    { x: sw / 2,  y: stemH },
+    { x: -sw / 2, y: stemH },
+    { x: -sw / 2, y: 0 },
+    { x: lx - sw / 2, y: ly },
+    { x: lx + sw / 2, y: ly },
+    { x: sw / 2,  y: 0 },
+    { x: rx + sw / 2, y: ry },
+    { x: rx - sw / 2, y: ry },
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'yShape', vertices };
+}
+
+function generateVShape(rng: Rng): OuterShape {
+  // Letter V: two arms, one taller than the other (asymmetric).
+  const thick   = 18 + rng.range(-2, 3);
+  const leftH   = 70 + rng.range(-5, 5);
+  const rightH  = 50 + rng.range(-5, 5);
+  const spread  = 55 + rng.range(-4, 4);
+  const bottomY = 10 + rng.range(-3, 3);
+  const pts: Pt[] = [
+    { x: -spread,         y: -leftH },
+    { x: -spread + thick, y: -leftH },
+    { x: thick * 0.4,     y: bottomY },
+    { x: spread - thick,  y: -rightH },
+    { x: spread,          y: -rightH },
+    { x: thick * 0.6,     y: bottomY + thick },
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'vShape', vertices };
+}
+
+function generateNShape(rng: Rng): OuterShape {
+  // Letter N: two vertical pillars + an asymmetric diagonal bar.
+  const pillarH  = 72 + rng.range(-5, 5);
+  const thick    = 16 + rng.range(-2, 3);
+  const width    = 60 + rng.range(-5, 5);
+  const diagTop  = rng.range(-8, 8);   // diagonal exits left pillar at asymmetric height
+  const pts: Pt[] = [
+    { x: 0,            y: -pillarH / 2 },
+    { x: thick,        y: -pillarH / 2 },
+    { x: thick,        y: -pillarH / 2 + diagTop + thick * 1.2 },
+    { x: width,        y: pillarH / 2 },
+    { x: width + thick, y: pillarH / 2 },
+    { x: width + thick, y: -pillarH / 2 },
+    { x: width,        y: -pillarH / 2 },
+    { x: thick,        y: pillarH / 2 - thick * 0.6 },
+  ];
+  const cx = (width + thick) / 2;
+  const centered = pts.map((p) => ({ x: p.x - cx, y: p.y }));
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = centered.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'nShape', vertices };
+}
+
+function generateUShape(rng: Rng): OuterShape {
+  // Letter U: two vertical arms (different heights) + arc base approximated by 2 pts.
+  const leftH   = 68 + rng.range(-5, 5);
+  const rightH  = 52 + rng.range(-5, 5);
+  const width   = 60 + rng.range(-5, 5);
+  const thick   = 16 + rng.range(-2, 3);
+  const baseY   = 30 + rng.range(-3, 3);
+  const asym    = rng.range(4, 10);
+  const pts: Pt[] = [
+    { x: 0,          y: -leftH / 2 },
+    { x: thick,      y: -leftH / 2 },
+    { x: thick,      y: baseY - thick },
+    { x: thick + asym, y: baseY },
+    { x: width - asym, y: baseY },
+    { x: width,      y: baseY - thick },
+    { x: width,      y: -rightH / 2 },
+    { x: width + thick, y: -rightH / 2 },
+    { x: width + thick, y: baseY + asym * 0.3 },
+    { x: thick - asym * 0.3, y: baseY + asym * 0.3 },
+    { x: 0,          y: baseY - thick },
+  ];
+  const cx = (width + thick) / 2;
+  const centered = pts.map((p) => ({ x: p.x - cx, y: p.y }));
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = centered.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'uShape', vertices };
+}
+
+// ─── Organic / Natural ────────────────────────────────────────────────────────
+
+function generateFishShape(rng: Rng): OuterShape {
+  // Fish: oval body tapering to a V-notch tail fin (offset for asymmetry).
+  const steps = rng.pick([4, 6]);  // 10 or 14 total vertices
+  const bodyLen = 60 + rng.range(-5, 5);
+  const bodyH   = 32 + rng.range(-4, 4);
+  const tailLen = 28 + rng.range(-3, 4);
+  const notchY  = rng.range(8, 16);   // how far upper tail prong extends (asymmetric)
+  const pts: Pt[] = [];
+  // Body arc: tip (right) going CCW to tail junction (left).
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const ang = -Math.PI * 0.6 + t * Math.PI * 1.2;
+    pts.push({ x: bodyLen * Math.cos(ang), y: bodyH * Math.sin(ang) });
+  }
+  // Tail: V-notch extending left.
+  pts.push({ x: -(bodyLen + tailLen), y: -notchY });     // lower tail prong
+  pts.push({ x: -bodyLen * 0.8, y: 0 });                  // notch center
+  pts.push({ x: -(bodyLen + tailLen * 0.85), y: notchY * 1.3 }); // upper tail prong (longer)
+  const ang2 = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang2), s = Math.sin(ang2);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'fishShape', vertices };
+}
+
+function generateMushroomShape(rng: Rng): OuterShape {
+  // Mushroom: dome cap + asymmetric rectangular stem.
+  const steps  = 8;
+  const capR   = 55 + rng.range(-4, 4);
+  const stemW  = 22 + rng.range(-2, 4);
+  const stemH  = 36 + rng.range(-3, 4);
+  const capOff = rng.range(-10, 10);   // cap dome center off-stem axis
+  const asym   = rng.range(4, 10);
+  const stemL  = -stemW / 2 - asym;
+  const stemR  = stemW / 2;
+  const capY   = -8 + rng.range(-3, 3);
+  const pts: Pt[] = [];
+  // Cap arc (upper dome), sweeping from right side to left side.
+  const startA = -Math.PI * 0.05;
+  const endA   = Math.PI * 1.05;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const a = startA + t * (endA - startA);
+    pts.push({ x: capOff + capR * Math.cos(a), y: capY + capR * 0.65 * Math.sin(a) });
+  }
+  // Stem corners.
+  pts.push({ x: stemL, y: capY + capR * 0.1 });
+  pts.push({ x: stemL, y: capY + stemH });
+  pts.push({ x: stemR, y: capY + stemH });
+  pts.push({ x: stemR, y: capY + capR * 0.1 });
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'mushroomShape', vertices };
+}
+
+function generateWaveRibbon(rng: Rng): OuterShape {
+  // Horizontal ribbon with offset sinusoidal top and bottom edges.
+  const nPeaks = rng.pick([4, 6]);   // 10 or 14 total
+  const ribbonW = 70 + rng.range(-5, 5);
+  const ribbonH = 22 + rng.range(-3, 3);
+  const phase   = rng.range(0.3, 0.7); // phase offset between top and bottom
+  const amp     = 14 + rng.range(-3, 4);
+  const asym    = rng.range(3, 8);
+  const pts: Pt[] = [];
+  // Top edge: left to right
+  for (let i = 0; i <= nPeaks; i++) {
+    const t = i / nPeaks;
+    const x = -ribbonW + t * 2 * ribbonW;
+    pts.push({ x, y: -ribbonH / 2 + amp * Math.sin(t * Math.PI * 2) + asym });
+  }
+  // Bottom edge: right to left (offset phase)
+  for (let i = nPeaks; i >= 0; i--) {
+    const t = i / nPeaks;
+    const x = -ribbonW + t * 2 * ribbonW;
+    pts.push({ x, y: ribbonH / 2 + amp * Math.sin((t + phase) * Math.PI * 2) });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'waveRibbon', vertices };
+}
+
+function generateFanShape(rng: Rng): OuterShape {
+  // Sector/fan: two radii + arc, unequal radii for asymmetry.
+  const steps   = rng.pick([8, 10, 12]);
+  const outerR  = 68 + rng.range(-4, 4);
+  const innerR  = 28 + rng.range(-4, 5);   // different = asymmetric ring
+  const span    = Math.PI * (0.7 + rng.range(-0.1, 0.15));
+  const startA  = -span / 2;
+  const pts: Pt[] = [];
+  // Inner radius start
+  pts.push({ x: innerR * Math.cos(startA), y: innerR * Math.sin(startA) });
+  // Outer arc
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const a = startA + t * span;
+    pts.push({ x: outerR * Math.cos(a), y: outerR * Math.sin(a) });
+  }
+  // Inner radius end (different length to break symmetry)
+  pts.push({ x: (innerR + 12) * Math.cos(startA + span), y: (innerR + 12) * Math.sin(startA + span) });
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'fanShape', vertices };
+}
+
+function generatePawShape(rng: Rng): OuterShape {
+  // Paw: large palm pad + 3 or 4 toe bumps along top edge.
+  const nToes  = rng.pick([3, 4]);   // 12 or 14 total
+  const padR   = 42 + rng.range(-3, 4);
+  const toeR   = 18 + rng.range(-2, 3);
+  const spread = (nToes === 4 ? 55 : 42) + rng.range(-3, 3);
+  const toeY   = -padR * 0.55 + rng.range(-4, 4);
+  const pts: Pt[] = [];
+  // Palm pad arc: bottom half (from right to left going CW below).
+  const padSteps = 8;
+  for (let i = 0; i <= padSteps; i++) {
+    const t = i / padSteps;
+    const a = -Math.PI * 0.1 + t * Math.PI * 1.2;
+    pts.push({ x: padR * Math.cos(a), y: padR * Math.sin(a) });
+  }
+  // Toe bumps across the top (uneven sizes for asymmetry).
+  for (let i = nToes - 1; i >= 0; i--) {
+    const tx   = -spread / 2 + (i / (nToes - 1)) * spread;
+    const tr   = toeR * (0.75 + rng.range(0, 0.5));  // uneven toe sizes
+    const tSteps = 3;
+    for (let j = tSteps; j >= 0; j--) {
+      const a = Math.PI * 0.1 + (j / tSteps) * Math.PI * 0.8;
+      pts.push({ x: tx + tr * Math.cos(a), y: toeY - tr * Math.sin(a) });
+    }
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'pawShape', vertices };
+}
+
+function generateSpeechBubble(rng: Rng): OuterShape {
+  // Rounded rectangle + triangular tail on one corner, off-center.
+  const steps = rng.pick([3, 5]);   // 9 or 13 total
+  const bw    = 55 + rng.range(-5, 5);
+  const bh    = 36 + rng.range(-4, 4);
+  const tX    = rng.range(-15, 15);    // tail x offset (off-center)
+  const tLen  = 24 + rng.range(-3, 4);
+  const tW    = 14 + rng.range(-2, 3);
+  const pts: Pt[] = [];
+  // Box outline (rectangle approximation with slightly rounded corners via N pts).
+  const corners: [number, number, number][] = [
+    [-bw, -bh, Math.PI],
+    [-bw, bh, Math.PI * 0.5],
+    [bw, bh, 0],
+    [bw, -bh, -Math.PI * 0.5],
+  ];
+  for (const [cx, cy, startA] of corners) {
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const a = startA + t * Math.PI * 0.5;
+      pts.push({ x: cx + 10 * Math.cos(a), y: cy + 10 * Math.sin(a) });
+    }
+  }
+  // Replace one segment with triangular tail.
+  // Simplest: insert tail between last corner (top-right area) and start.
+  const tailPts: Pt[] = [
+    { x: tX - tW / 2, y: -bh },
+    { x: tX,           y: -(bh + tLen) },
+    { x: tX + tW / 2, y: -bh },
+  ];
+  pts.splice(pts.length - steps - 2, steps + 2, ...tailPts);
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'speechBubble', vertices };
+}
+
+// ─── Geometric / Architectural ────────────────────────────────────────────────
+
+function generateArchShape(rng: Rng): OuterShape {
+  // Roman arch silhouette: two pillars + semicircular top.
+  const steps  = rng.pick([8, 12]);
+  const pillarW = 18 + rng.range(-2, 3);
+  const archW   = 60 + rng.range(-5, 5);
+  const pillarH = 55 + rng.range(-4, 5);
+  const asym    = rng.range(4, 12);   // left pillar taller/shorter
+  const arcR    = archW / 2;
+  const arcCY   = -pillarH + asym;
+  const pts: Pt[] = [];
+  // Left pillar outer (bottom to top).
+  pts.push({ x: -archW - pillarW, y: pillarH });
+  pts.push({ x: -archW - pillarW, y: -pillarH + asym });
+  // Left junction into arch arc.
+  pts.push({ x: -archW, y: -pillarH + asym });
+  // Arch arc (outer): left to right, sweeping over the top.
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const a = Math.PI + t * Math.PI;
+    pts.push({ x: arcR * Math.cos(a), y: arcCY + (arcR + pillarW * 0.8) * Math.sin(a) });
+  }
+  // Right junction.
+  pts.push({ x: archW, y: -pillarH });
+  pts.push({ x: archW + pillarW, y: -pillarH });
+  pts.push({ x: archW + pillarW, y: pillarH });
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'archShape', vertices };
+}
+
+function generateKeystone(rng: Rng): OuterShape {
+  // Keystone/voussoir: trapezoidal wedge wider at bottom, slight lean.
+  const topW  = 30 + rng.range(-3, 4);
+  const botW  = 55 + rng.range(-4, 5);
+  const h     = 65 + rng.range(-5, 5);
+  const lean  = rng.range(8, 18);
+  const pts: Pt[] = [
+    { x: -topW / 2 + lean, y: -h / 2 },
+    { x:  topW / 2 + lean, y: -h / 2 },
+    { x:  botW / 2,        y:  h / 2 },
+    { x: -botW / 2,        y:  h / 2 },
+    { x: -botW / 2 + lean * 0.3, y: 0 },
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'keystone', vertices };
+}
+
+function generateBracketShape(rng: Rng): OuterShape {
+  // Right-angle bracket (angle bracket): distinct proportions from lShapeWide.
+  const longArm = 80 + rng.range(-5, 5);
+  const shortArm = 40 + rng.range(-5, 5);
+  const thick   = 14 + rng.range(-2, 3);
+  const asym    = rng.range(5, 12);
+  const pts: Pt[] = [
+    { x: 0,                  y: 0 },
+    { x: longArm,            y: 0 },
+    { x: longArm,            y: thick + asym },
+    { x: thick,              y: thick + asym },
+    { x: thick,              y: shortArm },
+    { x: 0,                  y: shortArm },
+  ];
+  const cx = longArm / 2;
+  const cy = shortArm / 2;
+  let centered = pts.map((p) => ({ x: p.x - cx, y: p.y - cy }));
+  if (rng.bool()) centered = centered.map((p) => ({ x: -p.x, y: p.y }));
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = centered.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'bracketShape', vertices };
+}
+
+function generateCrenellated(rng: Rng): OuterShape {
+  // Rectangle with castle-battlement top: merlons and crenels of uneven width.
+  const nMerlons = rng.pick([3, 5]);   // 10 or 14 total
+  const baseW    = 70 + rng.range(-5, 5);
+  const baseH    = 30 + rng.range(-3, 3);
+  const merH     = 20 + rng.range(-3, 4);
+  const pts: Pt[] = [];
+  pts.push({ x: -baseW, y: baseH });
+  pts.push({ x:  baseW, y: baseH });
+  pts.push({ x:  baseW, y: 0 });
+  const span = 2 * baseW;
+  const slotW = span / (nMerlons * 2 - 1);
+  for (let i = nMerlons - 1; i >= 0; i--) {
+    // Merlon (upward bump), uneven heights.
+    const mh = merH + rng.range(-4, 6);
+    const mw = slotW * (0.8 + rng.range(0, 0.4));
+    const xCenter = -baseW + slotW * (2 * i + 1);
+    pts.push({ x: xCenter + mw / 2,  y: 0 });
+    pts.push({ x: xCenter + mw / 2,  y: -mh });
+    pts.push({ x: xCenter - mw / 2,  y: -mh });
+    pts.push({ x: xCenter - mw / 2,  y: 0 });
+  }
+  pts.push({ x: -baseW, y: 0 });
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'crenellated', vertices };
+}
+
+function generateFanSector(rng: Rng): OuterShape {
+  // Pie/sector slice: two straight radii + arc. Sector angle asymmetric.
+  const steps  = rng.pick([6, 8]);
+  const outerR = 70 + rng.range(-4, 4);
+  const span   = Math.PI * (0.5 + rng.range(0, 0.35));
+  const startA = -span * (0.35 + rng.range(-0.08, 0.08));
+  const asym   = rng.range(5, 14);   // one radius slightly longer
+  const pts: Pt[] = [{ x: 0, y: 0 }];
+  // Outer arc
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const a = startA + t * span;
+    pts.push({ x: (outerR + (i === 0 ? asym : 0)) * Math.cos(a),
+               y: (outerR + (i === 0 ? asym : 0)) * Math.sin(a) });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'fanSector', vertices };
+}
+
+// ─── Tool / Industrial ────────────────────────────────────────────────────────
+
+function generateKeyShape(rng: Rng): OuterShape {
+  // Key silhouette: round bow + narrow blade with one notch.
+  const steps = rng.pick([6, 8]);
+  const bowR  = 30 + rng.range(-3, 3);
+  const bladeL = 55 + rng.range(-5, 5);
+  const bladeH = 10 + rng.range(-1, 2);
+  const notchD = 10 + rng.range(-2, 3);
+  const notchX = bladeL * (0.55 + rng.range(-0.08, 0.08));
+  const asym   = rng.range(3, 8);
+  const pts: Pt[] = [];
+  // Bow arc (left circle).
+  const bowCX = -bladeL * 0.55;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const a = Math.PI * 0.55 + t * Math.PI * 1.9;
+    pts.push({ x: bowCX + bowR * Math.cos(a), y: bowR * Math.sin(a) });
+  }
+  // Blade: top edge with one notch.
+  pts.push({ x: bladeL, y: -bladeH + asym });   // blade tip top
+  pts.push({ x: bladeL, y:  bladeH });            // blade tip bottom
+  pts.push({ x: notchX + notchD, y:  bladeH });
+  pts.push({ x: notchX + notchD, y:  bladeH + notchD });
+  pts.push({ x: notchX,          y:  bladeH + notchD });
+  pts.push({ x: notchX,          y:  bladeH });
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'keyShape', vertices };
+}
+
+function generateWrenchHead(rng: Rng): OuterShape {
+  // Open-end wrench head: two parallel jaws, one jaw wider than the other.
+  const jawH    = 50 + rng.range(-4, 4);
+  const jawW    = 20 + rng.range(-2, 3);
+  const gapW    = 28 + rng.range(-3, 3);
+  const lean    = rng.range(10, 22);
+  const topW    = jawW + rng.range(4, 10);   // top jaw wider (asymmetry)
+  const asym    = rng.range(5, 10);
+  const pts: Pt[] = [
+    { x: 0,              y: -jawH / 2 },
+    { x: topW + lean,    y: -jawH / 2 },
+    { x: topW + lean + asym, y: -jawH / 2 + jawW },
+    { x: gapW + lean,   y: -jawH / 2 + jawW },
+    { x: gapW,          y:  jawH / 2 - jawW },
+    { x: gapW + lean,   y:  jawH / 2 - jawW },
+    { x: jawW + lean,   y:  jawH / 2 },
+    { x: 0,              y:  jawH / 2 },
+    { x: lean * 0.4,    y:  jawH / 2 - jawW },
+    { x: lean * 0.4,    y: -jawH / 2 + jawW },
+  ];
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'wrenchHead', vertices };
+}
+
+function generateZigzagShape(rng: Rng): OuterShape {
+  // Long strip with multiple zigzag teeth on one edge.
+  const nTeeth = rng.pick([4, 5, 6]);   // 10, 12, 14 pts
+  const stripW = 72 + rng.range(-5, 5);
+  const stripH = 18 + rng.range(-2, 3);
+  const pts: Pt[] = [];
+  pts.push({ x: -stripW, y:  stripH });   // bottom-left
+  pts.push({ x:  stripW, y:  stripH });   // bottom-right
+  // Zigzag top edge, right to left.
+  const span = 2 * stripW;
+  for (let i = 0; i <= nTeeth; i++) {
+    const x = stripW - (span * i) / nTeeth;
+    const peakY = (i % 2 === 0) ? -stripH : -(stripH + 18 + rng.range(0, 18));
+    pts.push({ x, y: peakY });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'zigzagShape', vertices };
+}
+
+function generateHexBolt(rng: Rng): OuterShape {
+  // Hexagonal bolt/nut head with one flattened face for asymmetry.
+  const R2     = 62 + rng.range(-4, 4);
+  const inner  = R2 * (0.72 + rng.range(-0.04, 0.04));
+  const flat   = rng.int(0, 6);   // which face is flattened
+  const flatR  = R2 * (0.80 + rng.range(0, 0.06));
+  const pts: Pt[] = [];
+  for (let i = 0; i < 6; i++) {
+    const a1 = (i / 6) * Math.PI * 2;
+    const a2 = ((i + 0.5) / 6) * Math.PI * 2;
+    const outerR2 = (i === flat) ? flatR : R2;
+    pts.push({ x: outerR2 * Math.cos(a1), y: outerR2 * Math.sin(a1) });
+    pts.push({ x: inner * Math.cos(a2),   y: inner * Math.sin(a2) });
+  }
+  const ang = rng.range(0, Math.PI * 2);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const vertices = pts.map((p) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c }));
+  return { kind: 'hexBolt', vertices };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function fallbackShape(): OuterShape {
   // Hand-curated asymmetric quadrilateral.
