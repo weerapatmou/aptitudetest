@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { AssembledOption, JigsawPiece, Polygon } from './types';
@@ -52,7 +52,8 @@ export function AssembledOptionCard({
   }, [targetPolygon]);
 
   const targetPath = useMemo(() => pathFromPolygon(targetPolygon), [targetPolygon]);
-  const clipId = `jigsaw-clip-${letter}`;
+  const uid = useId();
+  const clipId = `jigsaw-clip-${uid}`;
 
   return (
     <motion.button
