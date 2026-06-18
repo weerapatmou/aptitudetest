@@ -288,27 +288,22 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
             </section>
 
             <section aria-label="Candidate options" className="w-full">
-              <div className="overflow-x-auto pb-3 -mx-4 px-4 md:-mx-8 md:px-8 max-w-full">
-                <div
-                  className="flex flex-row flex-nowrap gap-3 md:gap-4"
-                  style={{ justifyContent: 'safe center' }}
-                >
-                  {current.candidates.map((c, i) => (
-                    <CandidateCard
-                      key={`${currentIdx}-${i}`}
-                      candidate={c}
-                      letter={LETTERS[i]!}
-                      index={i}
-                      focused={focused === i}
-                      selected={pick === i}
-                      isCorrect={correctness[i] === true}
-                      phase={phase}
-                      onPick={() => handlePick(i)}
-                      onFocus={() => setFocused(i)}
-                      reduced={!!reduced}
-                    />
-                  ))}
-                </div>
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+                {current.candidates.map((c, i) => (
+                  <CandidateCard
+                    key={`${currentIdx}-${i}`}
+                    candidate={c}
+                    letter={LETTERS[i]!}
+                    index={i}
+                    focused={focused === i}
+                    selected={pick === i}
+                    isCorrect={correctness[i] === true}
+                    phase={phase}
+                    onPick={() => handlePick(i)}
+                    onFocus={() => setFocused(i)}
+                    reduced={!!reduced}
+                  />
+                ))}
               </div>
 
               <div className="mt-6 mx-auto max-w-4xl">
@@ -602,27 +597,22 @@ function SheetScreen({
                 showReveal={submitted && showReveal}
               />
               <div className="w-full">
-                <div className="overflow-x-auto pb-3 -mx-4 px-4 md:-mx-8 md:px-8 max-w-full">
-                  <div
-                    className="flex flex-row flex-nowrap gap-3 md:gap-4"
-                    style={{ justifyContent: 'safe center' }}
-                  >
-                    {q.candidates.map((c, j) => (
-                      <CandidateCard
-                        key={`sheet-${i}-${j}`}
-                        candidate={c}
-                        letter={LETTERS[j]!}
-                        index={j}
-                        focused={false}
-                        selected={picked === j}
-                        isCorrect={qCorrectness[j] === true}
-                        phase={cardPhase}
-                        onPick={() => onPick(i, j)}
-                        onFocus={() => {}}
-                        reduced={reduced}
-                      />
-                    ))}
-                  </div>
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+                  {q.candidates.map((c, j) => (
+                    <CandidateCard
+                      key={`sheet-${i}-${j}`}
+                      candidate={c}
+                      letter={LETTERS[j]!}
+                      index={j}
+                      focused={false}
+                      selected={picked === j}
+                      isCorrect={qCorrectness[j] === true}
+                      phase={cardPhase}
+                      onPick={() => onPick(i, j)}
+                      onFocus={() => {}}
+                      reduced={reduced}
+                    />
+                  ))}
                 </div>
                 {submitted && (
                   <div className="mt-4 mx-auto max-w-4xl rounded-xl border border-border bg-bg-card p-4 md:p-5">
@@ -831,6 +821,7 @@ function CandidateCard({
   const revealed = phase === 'revealed';
   const showCorrectRing = revealed && isCorrect;
   const showWrongRing = revealed && selected && !isCorrect;
+  const showPendingRing = !revealed && selected;
 
   useEffect(() => {
     if (focused && ref.current) ref.current.focus({ preventScroll: true });
@@ -848,17 +839,20 @@ function CandidateCard({
       whileTap={revealed || reduced ? undefined : { scale: 0.98 }}
       aria-label={`Option ${letter}: figure`}
       className={clsx(
-        'group relative rounded-2xl border bg-bg-card p-4 transition-colors text-text card-focus-ring shrink-0',
+        'group relative rounded-2xl border bg-bg-card p-4 transition-colors text-text card-focus-ring w-full',
         !revealed && 'hover:bg-bg-card-hover hover:border-border-strong',
         showCorrectRing && 'border-correct',
         showWrongRing && 'border-wrong',
-        !showCorrectRing && !showWrongRing && 'border-border',
+        showPendingRing && 'border-accent',
+        !showCorrectRing && !showWrongRing && !showPendingRing && 'border-border',
       )}
       style={
         showCorrectRing
           ? { boxShadow: '0 0 0 2px var(--correct), 0 0 28px -6px var(--correct)' }
           : showWrongRing
           ? { boxShadow: '0 0 0 2px var(--wrong), 0 0 24px -6px var(--wrong)' }
+          : showPendingRing
+          ? { boxShadow: '0 0 0 2px var(--accent), 0 0 20px -8px var(--accent)' }
           : undefined
       }
     >
@@ -871,8 +865,8 @@ function CandidateCard({
         </div>
       )}
       <div
-        className="flex items-center justify-center mt-5"
-        style={{ width: 'var(--svg-slot)', height: 'var(--svg-slot)' }}
+        className="flex items-center justify-center mt-5 mx-auto"
+        style={{ width: '100%', maxWidth: 'var(--svg-slot)', aspectRatio: '1' }}
       >
         <Figure
           figure={candidate.figure}
