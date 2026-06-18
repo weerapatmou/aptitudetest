@@ -138,6 +138,16 @@ export function AssembledOptionCard({
               />
             ))}
           </g>
+
+          {/* Boundary overlay — drawn outside clip group to cover stroke-clipping artifacts */}
+          <path
+            d={targetPath}
+            fill="none"
+            stroke="var(--accent)"
+            strokeOpacity={0.35}
+            strokeWidth={1.8}
+            strokeLinejoin="round"
+          />
         </svg>
       </div>
       {!compact && (
