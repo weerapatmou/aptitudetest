@@ -5,6 +5,7 @@ import type { JigsawPuzzle } from './types';
 import { generateJigsawPuzzle, signatureOf } from './generate';
 import { PiecePanel } from './PiecePanel';
 import { AssembledOptionCard } from './AssembledOptionCard';
+import { exportJigsawPdf } from './exportPdf';
 import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
 import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
@@ -239,6 +240,13 @@ export function JigsawPuzzle({ onHome }: Props = {}) {
           )}
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => exportJigsawPdf(questions)}
+              disabled={questions.length === 0}
+              className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              Export PDF
+            </button>
             {submitted && (
               <button
                 onClick={newSheet}
