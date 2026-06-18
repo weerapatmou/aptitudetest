@@ -89,17 +89,11 @@ function assembledOptionSvg(option: AssembledOption, targetPolygon: Polygon, uid
 }
 
 function renderQuestion(q: JigsawPuzzle, qIdx: number): string {
-  const correctLetter = LETTERS[q.correctIndex] ?? '?';
-
   const optionCells = q.options
     .map((opt, i) => {
       const letter = LETTERS[i] ?? '?';
-      const isCorrect = i === q.correctIndex;
-      const borderStyle = isCorrect
-        ? `border:2px solid ${C.correct};`
-        : `border:1.5px solid ${C.border};`;
       return (
-        `<div class="option" style="${borderStyle}">` +
+        `<div class="option">` +
         `<span class="opt-letter">${letter}</span>` +
         assembledOptionSvg(opt, q.targetPolygon, `q${qIdx}o${i}`) +
         `</div>`
@@ -114,19 +108,33 @@ function renderQuestion(q: JigsawPuzzle, qIdx: number): string {
     `<div class="pieces-wrap">${piecePanelSvg(q.questionPieces)}</div>` +
     `</div>` +
     `<div class="options-grid">${optionCells}</div>` +
-    `<div class="answer-row">Answer: <span class="answer-letter">${correctLetter}</span></div>` +
+    `</div>`
+  );
+}
+
+function renderAnswerKey(questions: JigsawPuzzle[]): string {
+  const cells = questions
+    .map((q, i) => {
+      const letter = LETTERS[q.correctIndex] ?? '?';
+      return (
+        `<div class="ak-cell">` +
+        `<span class="ak-qnum">Q${i + 1}</span>` +
+        `<span class="ak-letter">${letter}</span>` +
+        `</div>`
+      );
+    })
+    .join('');
+  return (
+    `<div class="answer-key">` +
+    `<div class="ak-title">ANSWER KEY</div>` +
+    `<div class="ak-grid">${cells}</div>` +
     `</div>`
   );
 }
 
 export function exportJigsawPdf(questions: JigsawPuzzle[]): void {
-  const date = new Date().toLocaleDateString('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-
-  const body = questions.map((q, i) => renderQuestion(q, i)).join('');
+  const questionBlocks = questions.map((q, i) => renderQuestion(q, i)).join('');
+  const answerKey = renderAnswerKey(questions);
 
   const html =
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
@@ -142,18 +150,23 @@ export function exportJigsawPdf(questions: JigsawPuzzle[]): void {
     `.q-num{font-size:11px;font-weight:700;color:${C.textDim};}` +
     `.q-meta{font-size:9px;color:${C.textDim};opacity:0.7;}` +
     `.pieces-wrap{flex:1;height:100%;}` +
-    `.options-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:7px;}` +
-    `.option{border-radius:7px;padding:4px;position:relative;aspect-ratio:1;background:${C.cardBg};}` +
+    `.options-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}` +
+    `.option{border:1.5px solid ${C.border};border-radius:7px;padding:4px;position:relative;aspect-ratio:1;background:${C.cardBg};}` +
     `.opt-letter{position:absolute;top:3px;left:5px;font-size:9px;color:${C.textDim};font-family:monospace;}` +
-    `.answer-row{font-size:10px;color:${C.textDim};}` +
-    `.answer-letter{color:${C.correct};font-weight:700;font-size:11px;}` +
-    `@media print{body{padding:10px 14px;}.question{margin-bottom:8px;}}` +
+    `.answer-key{margin-top:24px;padding:14px 16px;border:2px solid ${C.border};border-radius:10px;background:${C.cardBg};page-break-inside:avoid;}` +
+    `.ak-title{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${C.textDim};margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid ${C.border};}` +
+    `.ak-grid{display:flex;flex-wrap:wrap;gap:8px;}` +
+    `.ak-cell{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:32px;}` +
+    `.ak-qnum{font-size:9px;color:${C.textDim};}` +
+    `.ak-letter{font-size:14px;font-weight:700;color:${C.correct};}` +
+    `@media print{body{padding:10px 14px;}.question{margin-bottom:8px;}.answer-key{margin-top:16px;}}` +
     `</style></head><body>` +
     `<div class="page-header">` +
     `<span class="page-title">Jigsaw Puzzle — Practice Sheet</span>` +
-    `<span class="page-meta">${questions.length} question${questions.length !== 1 ? 's' : ''} · ${date}</span>` +
+    `<span class="page-meta">${questions.length} question${questions.length !== 1 ? 's' : ''}</span>` +
     `</div>` +
-    body +
+    questionBlocks +
+    answerKey +
     `<script>window.onload=function(){window.print();};</script>` +
     `</body></html>`;
 
