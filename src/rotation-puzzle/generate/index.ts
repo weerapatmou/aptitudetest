@@ -84,6 +84,14 @@ function allDistractorsDistinctFromCorrect(
 
 export { formatAngle } from './angles';
 
+import type { RotationSettings } from '../types';
+
+export function generateSession(settings: RotationSettings, seed: number): Puzzle[] {
+  return Array.from({ length: settings.count }, (_, i) =>
+    generatePuzzle(settings.difficulty, { seed: seed + i * 997 }),
+  );
+}
+
 /**
  * A stable signature capturing the memorable structure of a puzzle — the outer
  * shape kind plus the (order-independent) multiset of internal elements by

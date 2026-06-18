@@ -16,7 +16,7 @@ function renderQuestion(puzzle: Puzzle, svgs: string[], qIdx: number): string {
 
   const opts = optSvgs.map((s, i) => svgOptionBox(s, PRINT_LETTERS[i]!)).join('');
 
-  void puzzle; // correctIndex used below in the export function
+  void puzzle;
 
   return (
     `<div class="question">` +
@@ -35,18 +35,24 @@ function renderQuestion(puzzle: Puzzle, svgs: string[], qIdx: number): string {
   );
 }
 
-export function exportRotationPdf(puzzle: Puzzle | null): void {
-  if (!puzzle) return;
+export function exportRotationPdf(puzzles: Puzzle[]): void {
+  if (!puzzles.length) return;
   const containers = collectQuestionContainers();
   if (containers.length === 0) return;
 
-  const container = containers[0]!;
-  const svgs = Array.from(container.querySelectorAll<SVGSVGElement>('svg')).map(serializeSvg);
-  const body = renderQuestion(puzzle, svgs, 0);
+  const body = containers
+    .map((container, i) => {
+      const puzzle = puzzles[i];
+      if (!puzzle) return '';
+      const svgs = Array.from(container.querySelectorAll<SVGSVGElement>('svg')).map(serializeSvg);
+      return renderQuestion(puzzle, svgs, i);
+    })
+    .join('');
 
-  const correctIdx = puzzle.correctIndex;
-  const answerKey = renderAnswerKey([{ letter: PRINT_LETTERS[correctIdx] ?? '?' }]);
+  const answerKey = renderAnswerKey(
+    puzzles.map((p) => ({ letter: PRINT_LETTERS[p.correctIndex] ?? '?' })),
+  );
 
-  const html = buildPageHtml('Rotation Puzzle — Practice Sheet', 1, body + answerKey);
+  const html = buildPageHtml('Rotation Puzzle — Practice Sheet', puzzles.length, body + answerKey);
   openPrintWindow(html);
 }

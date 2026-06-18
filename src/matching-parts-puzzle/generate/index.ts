@@ -117,3 +117,11 @@ export function generateMatchingPuzzle(
 export function signatureOf(puzzle: MatchingPuzzle): string {
   return `${puzzle.reference.kind}:${puzzle.cutStrategy}:${puzzle.cutSegments}`;
 }
+
+import type { MatchingSettings } from '../types';
+
+export function generateSession(settings: MatchingSettings, seed: number): MatchingPuzzle[] {
+  return Array.from({ length: settings.count }, (_, i) =>
+    generateMatchingPuzzle(settings.difficulty, { seed: seed + i * 997 }),
+  );
+}

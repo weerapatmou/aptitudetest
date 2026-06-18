@@ -33,17 +33,24 @@ function renderQuestion(_puzzle: MatchingPuzzle, svgs: string[], qIdx: number): 
   );
 }
 
-export function exportMatchingPartsPdf(puzzle: MatchingPuzzle | null): void {
-  if (!puzzle) return;
+export function exportMatchingPartsPdf(puzzles: MatchingPuzzle[]): void {
+  if (!puzzles.length) return;
   const containers = collectQuestionContainers();
   if (containers.length === 0) return;
 
-  const container = containers[0]!;
-  const svgs = Array.from(container.querySelectorAll<SVGSVGElement>('svg')).map(serializeSvg);
-  const body = renderQuestion(puzzle, svgs, 0);
+  const body = containers
+    .map((container, i) => {
+      const puzzle = puzzles[i];
+      if (!puzzle) return '';
+      const svgs = Array.from(container.querySelectorAll<SVGSVGElement>('svg')).map(serializeSvg);
+      return renderQuestion(puzzle, svgs, i);
+    })
+    .join('');
 
-  const answerKey = renderAnswerKey([{ letter: PRINT_LETTERS[puzzle.correctIndex] ?? '?' }]);
+  const answerKey = renderAnswerKey(
+    puzzles.map((p) => ({ letter: PRINT_LETTERS[p.correctIndex] ?? '?' })),
+  );
 
-  const html = buildPageHtml('Matching Parts — Practice Sheet', 1, body + answerKey);
+  const html = buildPageHtml('Matching Parts — Practice Sheet', puzzles.length, body + answerKey);
   openPrintWindow(html);
 }

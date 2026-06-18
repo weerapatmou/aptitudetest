@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import clsx from 'clsx';
-import type { Candidate, Difficulty, Puzzle } from './types';
+import type { Candidate, Difficulty, Puzzle, RotationSettings, SessionResult } from './types';
 import { Figure, FigurePatternsDefs } from './Figure';
 import { Reveal } from './Reveal';
 import { DifficultyChips } from './DifficultyChips';
 import { HowToPlay } from './HowToPlay';
-import { generatePuzzle, signatureOf } from './generate';
+import { generateSession, signatureOf } from './generate';
 import { isPureRotationOf } from './validation';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { formatDuration, useTimer } from './hooks/useTimer';
-import { SeedBar, useSeedSequence } from '@/shared/seed';
+import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 import { LogoMark } from '@/shared/LogoMark';
 import { exportRotationPdf } from './exportPdf';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
-type Phase = 'answering' | 'revealed';
+type Phase = 'setup' | 'answering' | 'revealed' | 'sheet' | 'summary';
 
 type Props = {
   difficulty?: Difficulty;
@@ -25,93 +25,145 @@ type Props = {
 };
 
 export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {}) {
-  const [difficulty, setDifficulty] = useLocalStorage<Difficulty>(
-    'rotation:difficulty',
-    difficultyProp ?? 'medium',
-  );
-  const [score, setScore] = useLocalStorage('rotation:score', { correct: 0, total: 0 });
+  const [settings, setSettings] = useLocalStorage<RotationSettings>('rotation:settings', {
+    count: 10,
+    difficulty: difficultyProp ?? 'medium',
+    mode: 'sheet',
+  });
+
+  // Normalize mode for old entries that lack the field
+  const mode = settings.mode ?? 'sheet';
+
   const [showReveal, setShowReveal] = useLocalStorage('rotation:showReveal', true);
   const [showHelp, setShowHelp] = useState(false);
-  const [puzzleNumber, setPuzzleNumber] = useState(1);
-  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
-  const [phase, setPhase] = useState<Phase>('answering');
-  const [pick, setPick] = useState<number | null>(null);
-  const [focused, setFocused] = useState(0);
-  const reduced = useReducedMotion();
-
-  const { elapsed } = useTimer(true);
 
   const history = useSignatureHistory('rotation:sigHistory', { max: 150 });
 
-  // Anti-repeat: only "New" reads history (via pickSeed) to bias away from
-  // recently-seen structures. Generation from a committed seed stays
-  // deterministic, so replay/typed seeds always rebuild the same puzzle.
   const pickSeed = useCallback(
     () =>
       pickFreshSeed({
         recent: history.recent,
         previewSignatures: (s) =>
-          Array.from({ length: 5 }, (_, i) =>
-            signatureOf(generatePuzzle(difficulty, { seed: s + i })),
-          ),
+          generateSession({ ...settings, count: Math.min(settings.count, 8) }, s).map(signatureOf),
       }).seed,
-    [history.recent, difficulty],
+    [history.recent, settings],
   );
 
-  const seedSeq = useSeedSequence('rotation:sessionSeed', undefined, { pickSeed });
+  const seedState = useSeed('rotation:lastSeed', undefined, { pickSeed });
+  const seed = seedState.seed;
 
-  const regenerate = useCallback(
-    (useSeed: number) => {
-      const next = generatePuzzle(difficulty, { seed: useSeed });
-      setPuzzle(next);
-      // New/Next/Replay all record what was shown; only New READS history.
-      history.add([signatureOf(next)]);
-      setPhase('answering');
-      setPick(null);
-      setFocused(0);
+  const [phase, setPhase] = useState<Phase>('setup');
+  const [questions, setQuestions] = useState<Puzzle[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [pick, setPick] = useState<number | null>(null);
+  const [focused, setFocused] = useState(0);
+  const [results, setResults] = useState<SessionResult[]>([]);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [sheetSubmitted, setSheetSubmitted] = useState(false);
+  const reduced = useReducedMotion();
+
+  const timerRunning =
+    phase === 'answering' ||
+    phase === 'revealed' ||
+    (phase === 'sheet' && !sheetSubmitted);
+  const { elapsed, reset: resetTimer } = useTimer(timerRunning);
+
+  const current = questions[currentIdx] ?? null;
+
+  const launch = useCallback(
+    (useSeedVal: number) => {
+      seedState.commit(useSeedVal);
+      const generated = generateSession(settings, useSeedVal);
+      setQuestions(generated);
+      history.add(generated.map(signatureOf));
+      setResults([]);
+      resetTimer();
+      if (mode === 'sheet') {
+        setAnswers({});
+        setSheetSubmitted(false);
+        setPhase('sheet');
+      } else {
+        setCurrentIdx(0);
+        setPick(null);
+        setFocused(0);
+        setPhase('answering');
+      }
     },
-    [difficulty, history],
+    [settings, mode, resetTimer, seedState, history],
   );
 
-  // Generate first puzzle once on mount and whenever difficulty changes
-  // (re-bases the sequence). Deps intentionally only [difficulty] — adding
-  // seedSeq/regenerate would loop.
-  useEffect(() => {
-    regenerate(seedSeq.restart());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty]);
+  const startSession = useCallback(() => launch(seedState.fresh()), [launch, seedState]);
+  const replaySet = useCallback(() => launch(seed), [launch, seed]);
+  const applyTypedSeed = useCallback(() => {
+    const n = seedState.applyDraft();
+    if (n !== null) launch(n);
+  }, [seedState, launch]);
 
-  const newPuzzle = useCallback(() => {
-    regenerate(seedSeq.advance());
-    setPuzzleNumber((n) => n + 1);
-  }, [regenerate, seedSeq]);
+  const handleSheetPick = useCallback(
+    (qIdx: number, optIdx: number) => {
+      if (sheetSubmitted) return;
+      setAnswers((prev) => ({ ...prev, [qIdx]: optIdx }));
+    },
+    [sheetSubmitted],
+  );
+
+  const submitSheet = useCallback(() => {
+    if (sheetSubmitted) return;
+    const computed: SessionResult[] = questions.map((q, i) => {
+      const picked = answers[i];
+      if (picked === undefined) return { puzzle: q, pickedIndex: -1, correct: false };
+      return { puzzle: q, pickedIndex: picked, correct: isPureRotationOf(q.original, q.candidates[picked]!) };
+    });
+    setResults(computed);
+    setSheetSubmitted(true);
+  }, [questions, answers, sheetSubmitted]);
 
   const handlePick = useCallback(
     (idx: number) => {
-      if (!puzzle || phase !== 'answering') return;
-      const pickIsCorrect = isPureRotationOf(puzzle.original, puzzle.candidates[idx]!);
+      if (!current || phase !== 'answering') return;
+      const pickIsCorrect = isPureRotationOf(current.original, current.candidates[idx]!);
       setPick(idx);
       setPhase('revealed');
-      setScore((s) => ({
-        correct: s.correct + (pickIsCorrect ? 1 : 0),
-        total: s.total + 1,
-      }));
+      setResults((prev) => [...prev, { puzzle: current, pickedIndex: idx, correct: pickIsCorrect }]);
     },
-    [puzzle, phase, setScore],
+    [current, phase],
   );
 
-  // Keyboard nav
+  const nextQuestion = useCallback(() => {
+    if (phase !== 'revealed') return;
+    if (currentIdx + 1 >= questions.length) {
+      setPhase('summary');
+      return;
+    }
+    setCurrentIdx((i) => i + 1);
+    setPick(null);
+    setFocused(0);
+    setPhase('answering');
+  }, [phase, currentIdx, questions.length]);
+
+  const backToSetup = useCallback(() => {
+    setPhase('setup');
+    setQuestions([]);
+    setCurrentIdx(0);
+    setPick(null);
+    setResults([]);
+    setAnswers({});
+    setSheetSubmitted(false);
+  }, []);
+
+  // Keyboard nav for sequential mode
   useEffect(() => {
+    if (phase !== 'answering' && phase !== 'revealed') return;
+    if (showHelp) return;
     const onKey = (e: KeyboardEvent) => {
-      if (!puzzle) return;
-      if (showHelp) return;
       if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        newPuzzle();
+        if (phase === 'revealed') { e.preventDefault(); nextQuestion(); }
         return;
       }
-      // Grid is 2x2 on mobile, 1x4 on desktop. We use a 2x2 logical mapping for arrow keys.
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (
+        e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' || e.key === 'ArrowDown'
+      ) {
         e.preventDefault();
         setFocused((f) => {
           const row = Math.floor(f / 2), col = f % 2;
@@ -125,24 +177,26 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
         return;
       }
       if (e.key === 'Enter') {
-        if (phase === 'answering') {
-          e.preventDefault();
-          handlePick(focused);
-        } else if (phase === 'revealed') {
-          e.preventDefault();
-          newPuzzle();
-        }
+        e.preventDefault();
+        if (phase === 'answering') handlePick(focused);
+        else if (phase === 'revealed') nextQuestion();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [puzzle, phase, focused, handlePick, newPuzzle, showHelp]);
+  }, [phase, focused, handlePick, nextQuestion, showHelp]);
 
-  const candidates = puzzle?.candidates ?? [];
-  const correctness = puzzle
-    ? puzzle.candidates.map((c) => isPureRotationOf(puzzle.original, c))
+  const sessionScore = useMemo(() => results.filter((r) => r.correct).length, [results]);
+  const sessionAccuracy =
+    results.length > 0 ? Math.round((sessionScore / results.length) * 100) : 0;
+
+  const showScore =
+    phase === 'answering' || phase === 'revealed' || (phase === 'sheet' && sheetSubmitted);
+  const showTimer = phase === 'answering' || phase === 'revealed' || phase === 'sheet';
+
+  const correctness = current
+    ? current.candidates.map((c) => isPureRotationOf(current.original, c))
     : [];
-  const accuracy = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
 
   return (
     <div className="min-h-full bg-instrument">
@@ -173,25 +227,37 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
               </div>
             </div>
           )}
-          <div className="hidden md:flex items-center gap-2 ml-4 font-mono text-xs text-text-dim">
-            <span className="text-text-dim/70">QUESTION</span>
-            <span className="text-text font-medium">#{String(puzzleNumber).padStart(3, '0')}</span>
-          </div>
-          <div className="ml-auto flex items-center gap-3 md:gap-5 font-mono text-xs">
-            <ScoreReadout
-              score={score.correct}
-              total={score.total}
-              accuracy={accuracy}
-              onReset={() => {
-                if (score.total === 0) return;
-                if (typeof window !== 'undefined' && !window.confirm('Reset score to 0/0?')) return;
-                setScore({ correct: 0, total: 0 });
-              }}
-            />
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
-              <span className="text-text-dim/70">T</span>
-              <span className="text-text tabular-nums">{formatDuration(elapsed)}</span>
+          {(phase === 'answering' || phase === 'revealed') && (
+            <div className="hidden md:flex items-center gap-2 ml-4 font-mono text-xs text-text-dim">
+              <span className="text-text-dim/70">Q</span>
+              <span className="text-text font-medium">
+                {currentIdx + 1}
+                <span className="text-text-dim/60">/{questions.length}</span>
+              </span>
             </div>
+          )}
+          <div className="ml-auto flex items-center gap-3 md:gap-5 font-mono text-xs">
+            {showScore && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
+                <span className="text-text-dim/70">SCORE</span>
+                <span className="text-text tabular-nums">
+                  {sessionScore}
+                  <span className="text-text-dim/60">/{results.length}</span>
+                </span>
+                {results.length > 0 && (
+                  <>
+                    <span className="text-text-dim/40">·</span>
+                    <span className="text-accent tabular-nums">{sessionAccuracy}%</span>
+                  </>
+                )}
+              </div>
+            )}
+            {showTimer && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
+                <span className="text-text-dim/70">T</span>
+                <span className="text-text tabular-nums">{formatDuration(elapsed)}</span>
+              </div>
+            )}
             <button
               onClick={() => setShowHelp(true)}
               aria-label="How to play"
@@ -204,133 +270,133 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-10">
-        {/* Controls row */}
-        <div className="mb-6 flex flex-wrap items-center gap-3 justify-between">
-          <DifficultyChips value={difficulty} onChange={setDifficulty} />
-          <SeedBar
-            variant="full"
-            seed={seedSeq.current}
-            draft={seedSeq.draft}
-            draftValid={seedSeq.draftValid}
-            onDraftChange={seedSeq.setDraft}
-            onNew={() => {
-              regenerate(seedSeq.fresh());
-              setPuzzleNumber((n) => n + 1);
-            }}
-            onReplay={() => {
-              regenerate(seedSeq.restart());
-            }}
-            onApply={() => {
-              const n = seedSeq.applyDraft();
-              if (n !== null) regenerate(n);
-            }}
+        {phase === 'setup' && (
+          <SetupScreen
+            settings={settings}
+            onChange={setSettings}
+            onStart={startSession}
+            seedState={seedState}
+            onApplySeed={applyTypedSeed}
+            onReplay={replaySet}
           />
-          <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs text-text-dim font-mono uppercase tracking-wider">
-            <input
-              type="checkbox"
-              checked={showReveal}
-              onChange={(e) => setShowReveal(e.target.checked)}
-              className="accent-accent"
-            />
-            Show rotation
-          </label>
-        </div>
+        )}
 
-        {/* Puzzle stack: Original on top (centered), candidates below at the
-            same SVG-slot size so figures render 1:1. Candidates flex-wrap
-            to 2×2 on narrow viewports and 1×4 when there's room. */}
-        <div data-pdf-q="0" className="flex flex-col items-center gap-6">
-          <section aria-label="Original figure" className="flex justify-center">
-            {puzzle && (
-              <OriginalCard
-                puzzle={puzzle}
-                phase={phase}
-                showReveal={showReveal}
-              />
-            )}
-          </section>
+        {(phase === 'answering' || phase === 'revealed') && current && (
+          <div className="flex flex-col items-center gap-6">
+            <section aria-label="Original figure" className="flex justify-center">
+              <OriginalCard puzzle={current} phase={phase} showReveal={showReveal} />
+            </section>
 
-          <section aria-label="Candidate options" className="w-full">
-            <div className="overflow-x-auto pb-3 -mx-4 px-4 md:-mx-8 md:px-8 max-w-full">
-              <div
-                className="flex flex-row flex-nowrap gap-3 md:gap-4"
-                style={{ justifyContent: 'safe center' }}
-              >
-              {candidates.map((c, i) => (
-                <CandidateCard
-                  key={`${puzzleNumber}-${i}`}
-                  candidate={c}
-                  letter={LETTERS[i]!}
-                  index={i}
-                  focused={focused === i}
-                  selected={pick === i}
-                  isCorrect={correctness[i] === true}
-                  phase={phase}
-                  onPick={() => handlePick(i)}
-                  onFocus={() => setFocused(i)}
-                  reduced={!!reduced}
-                />
-              ))}
-              </div>
-            </div>
-
-            {/* Explanation + next */}
-            <div className="mt-6 mx-auto max-w-4xl">
-              <AnimatePresence mode="wait">
-                {phase === 'revealed' && puzzle && pick !== null && (
-                  <motion.div
-                    key={puzzleNumber}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={reduced ? { duration: 0 } : { duration: 0.25 }}
-                    className="rounded-xl border border-border bg-bg-card p-4 md:p-5"
-                  >
-                    <RevealSummary
-                      puzzle={puzzle}
-                      pick={pick}
-                      correctness={correctness}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <div className="mt-4 flex items-center justify-between gap-3">
+            <section aria-label="Candidate options" className="w-full">
+              <div className="overflow-x-auto pb-3 -mx-4 px-4 md:-mx-8 md:px-8 max-w-full">
                 <div
-                  role="status"
-                  aria-live="polite"
-                  className="font-mono text-xs text-text-dim min-h-5"
+                  className="flex flex-row flex-nowrap gap-3 md:gap-4"
+                  style={{ justifyContent: 'safe center' }}
                 >
-                  {phase === 'revealed' && puzzle && pick !== null && (
-                    correctness[pick]
-                      ? `Correct! Any rotation of the original counts.`
-                      : `Incorrect — that option is ${labelForKind(puzzle.candidates[pick]!.kind, false)}. The correct answer was ${LETTERS[correctness.indexOf(true)] ?? LETTERS[puzzle.correctIndex]}.`
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => exportRotationPdf(puzzle)}
-                    disabled={!puzzle}
-                    className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  >
-                    Export PDF
-                  </button>
-                  <button
-                    onClick={newPuzzle}
-                    disabled={phase !== 'revealed'}
-                    className={clsx(
-                      'px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs transition shrink-0',
-                      phase === 'revealed'
-                        ? 'bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)]'
-                        : 'bg-bg-card text-text-dim/60 cursor-not-allowed border border-border',
-                    )}
-                  >
-                    Next →
-                  </button>
+                  {current.candidates.map((c, i) => (
+                    <CandidateCard
+                      key={`${currentIdx}-${i}`}
+                      candidate={c}
+                      letter={LETTERS[i]!}
+                      index={i}
+                      focused={focused === i}
+                      selected={pick === i}
+                      isCorrect={correctness[i] === true}
+                      phase={phase}
+                      onPick={() => handlePick(i)}
+                      onFocus={() => setFocused(i)}
+                      reduced={!!reduced}
+                    />
+                  ))}
                 </div>
               </div>
-            </div>
-          </section>
-        </div>
+
+              <div className="mt-6 mx-auto max-w-4xl">
+                <AnimatePresence mode="wait">
+                  {phase === 'revealed' && current && pick !== null && (
+                    <motion.div
+                      key={currentIdx}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={reduced ? { duration: 0 } : { duration: 0.25 }}
+                      className="rounded-xl border border-border bg-bg-card p-4 md:p-5"
+                    >
+                      <RevealSummary puzzle={current} pick={pick} correctness={correctness} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={backToSetup}
+                      className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
+                    >
+                      ← End session
+                    </button>
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs text-text-dim font-mono uppercase tracking-wider">
+                      <input
+                        type="checkbox"
+                        checked={showReveal}
+                        onChange={(e) => setShowReveal(e.target.checked)}
+                        className="accent-accent"
+                      />
+                      Show rotation
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {phase === 'revealed' && (
+                      <button
+                        onClick={() => exportRotationPdf(questions)}
+                        className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 transition"
+                      >
+                        Export PDF
+                      </button>
+                    )}
+                    <button
+                      onClick={nextQuestion}
+                      disabled={phase !== 'revealed'}
+                      className={clsx(
+                        'px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs transition shrink-0',
+                        phase === 'revealed'
+                          ? 'bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)]'
+                          : 'bg-bg-card text-text-dim/60 cursor-not-allowed border border-border',
+                      )}
+                    >
+                      {currentIdx + 1 >= questions.length ? 'Finish' : 'Next →'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {phase === 'sheet' && (
+          <SheetScreen
+            questions={questions}
+            answers={answers}
+            submitted={sheetSubmitted}
+            seed={seed}
+            reduced={!!reduced}
+            showReveal={showReveal}
+            onSetShowReveal={setShowReveal}
+            onPick={handleSheetPick}
+            onSubmit={submitSheet}
+            onEndSession={backToSetup}
+            onViewSummary={() => setPhase('summary')}
+          />
+        )}
+
+        {phase === 'summary' && (
+          <SummaryScreen
+            results={results}
+            elapsedMs={elapsed}
+            seed={seed}
+            onReplay={replaySet}
+            onAgain={backToSetup}
+          />
+        )}
       </main>
     </div>
   );
@@ -338,13 +404,370 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
 
 // ---- Sub-components ----
 
+function SetupScreen({
+  settings,
+  onChange,
+  onStart,
+  seedState,
+  onApplySeed,
+  onReplay,
+}: {
+  settings: RotationSettings;
+  onChange: (s: RotationSettings) => void;
+  onStart: () => void;
+  seedState: UseSeed;
+  onApplySeed: () => void;
+  onReplay: () => void;
+}) {
+  const modes: Array<{ value: 'sequential' | 'sheet'; label: string; hint: string }> = [
+    { value: 'sequential', label: 'One at a time', hint: 'Answer → instant feedback → next.' },
+    {
+      value: 'sheet',
+      label: 'Practice sheet',
+      hint: 'All questions on one page — answer in any order, then submit to reveal everything.',
+    },
+  ];
+  const activeMode = settings.mode ?? 'sheet';
+
+  return (
+    <div className="max-w-xl mx-auto rounded-2xl border border-border bg-bg-card p-6 md:p-8">
+      <h2 className="font-display text-2xl font-semibold text-text mb-2">Rotation Test</h2>
+      <p className="text-text-dim text-sm mb-6 leading-relaxed">
+        Pick the option that shows the original figure rotated — not mirrored, not altered.
+        Difficulty controls the rotation angle and distractor types.
+      </p>
+
+      <div className="space-y-5">
+        <div>
+          <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+            Mode
+          </label>
+          <div className="flex flex-wrap gap-1.5 rounded-xl border border-border bg-bg p-1.5">
+            {modes.map((m) => {
+              const active = activeMode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  onClick={() => onChange({ ...settings, mode: m.value })}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-lg text-xs uppercase tracking-wider font-mono transition',
+                    active
+                      ? 'bg-accent text-bg shadow-[0_0_18px_-4px_var(--accent)]'
+                      : 'text-text-dim hover:text-text hover:bg-bg-card-hover',
+                  )}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px] text-text-dim/80">
+            {modes.find((m) => m.value === activeMode)?.hint}
+          </p>
+        </div>
+
+        <div>
+          <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+            Difficulty
+          </label>
+          <DifficultyChips
+            value={settings.difficulty}
+            onChange={(d) => onChange({ ...settings, difficulty: d })}
+          />
+        </div>
+
+        <div>
+          <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+            Questions
+          </label>
+          <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-bg p-1.5">
+            {([5, 10, 20] as const).map((c) => {
+              const active = settings.count === c;
+              return (
+                <button
+                  key={c}
+                  onClick={() => onChange({ ...settings, count: c })}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-lg text-xs uppercase tracking-wider font-mono transition',
+                    active
+                      ? 'bg-accent text-bg shadow-[0_0_18px_-4px_var(--accent)]'
+                      : 'text-text-dim hover:text-text hover:bg-bg-card-hover',
+                  )}
+                >
+                  {c}
+                </button>
+              );
+            })}
+            <div className="flex items-center gap-2 px-2 py-1">
+              <span className="text-[11px] text-text-dim font-mono">Custom:</span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={settings.count}
+                onChange={(e) =>
+                  onChange({ ...settings, count: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })
+                }
+                className="w-14 px-2 py-1 rounded-md border border-border bg-bg-card text-text font-mono text-xs tabular-nums focus:outline-none focus:border-accent"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-mono text-[11px] uppercase tracking-wider text-text-dim mb-2">
+            Seed{' '}
+            <span className="text-text-dim/50 normal-case tracking-normal">
+              — paste one to replay an exact set
+            </span>
+          </label>
+          <SeedBar
+            seed={seedState.seed}
+            draft={seedState.draft}
+            draftValid={seedState.draftValid}
+            onDraftChange={seedState.setDraft}
+            onApply={onApplySeed}
+            onNew={onStart}
+            onReplay={onReplay}
+          />
+        </div>
+      </div>
+
+      <button
+        onClick={onStart}
+        className="mt-7 w-full px-4 py-3 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-sm font-semibold hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
+      >
+        Start session →
+      </button>
+    </div>
+  );
+}
+
+function SheetScreen({
+  questions,
+  answers,
+  submitted,
+  seed,
+  reduced,
+  showReveal,
+  onSetShowReveal,
+  onPick,
+  onSubmit,
+  onEndSession,
+  onViewSummary,
+}: {
+  questions: Puzzle[];
+  answers: Record<number, number>;
+  submitted: boolean;
+  seed: number;
+  reduced: boolean;
+  showReveal: boolean;
+  onSetShowReveal: (v: boolean) => void;
+  onPick: (qIdx: number, optIdx: number) => void;
+  onSubmit: () => void;
+  onEndSession: () => void;
+  onViewSummary: () => void;
+}) {
+  const answeredCount = Object.keys(answers).length;
+  const total = questions.length;
+  const score = questions.reduce((acc, q, i) => {
+    const picked = answers[i];
+    return acc + (picked !== undefined && isPureRotationOf(q.original, q.candidates[picked]!) ? 1 : 0);
+  }, 0);
+  const scorePct = total > 0 ? Math.round((score / total) * 100) : 0;
+
+  return (
+    <>
+      <div className="mb-6 font-mono text-[11px] uppercase tracking-wider text-text-dim/70">
+        Seed <span className="text-text-dim">#{seed}</span>
+      </div>
+      <div className="flex flex-col gap-12 pb-28">
+        {questions.map((q, i) => {
+          const picked = answers[i];
+          const cardPhase: 'answering' | 'revealed' = submitted ? 'revealed' : 'answering';
+          const qCorrectness = q.candidates.map((c) => isPureRotationOf(q.original, c));
+          return (
+            <section
+              key={i}
+              id={`q-${i}`}
+              data-pdf-q={i}
+              className="flex flex-col items-center gap-6 scroll-mt-24"
+            >
+              <div className="w-full font-mono text-[11px] uppercase tracking-wider text-text-dim/70">
+                Q{i + 1} <span className="text-text-dim/40">of {total}</span>
+              </div>
+              <OriginalCard
+                puzzle={q}
+                phase={cardPhase}
+                showReveal={submitted && showReveal}
+              />
+              <div className="w-full">
+                <div className="overflow-x-auto pb-3 -mx-4 px-4 md:-mx-8 md:px-8 max-w-full">
+                  <div
+                    className="flex flex-row flex-nowrap gap-3 md:gap-4"
+                    style={{ justifyContent: 'safe center' }}
+                  >
+                    {q.candidates.map((c, j) => (
+                      <CandidateCard
+                        key={`sheet-${i}-${j}`}
+                        candidate={c}
+                        letter={LETTERS[j]!}
+                        index={j}
+                        focused={false}
+                        selected={picked === j}
+                        isCorrect={qCorrectness[j] === true}
+                        phase={cardPhase}
+                        onPick={() => onPick(i, j)}
+                        onFocus={() => {}}
+                        reduced={reduced}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {submitted && (
+                  <div className="mt-4 mx-auto max-w-4xl rounded-xl border border-border bg-bg-card p-4 md:p-5">
+                    <RevealSummary puzzle={q} pick={picked ?? -1} correctness={qCorrectness} />
+                  </div>
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-bg/90 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onEndSession}
+              className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
+            >
+              {submitted ? '← New session' : '← End session'}
+            </button>
+            <button
+              onClick={() => exportRotationPdf(questions)}
+              disabled={questions.length === 0}
+              className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              Export PDF
+            </button>
+            {submitted && (
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs text-text-dim font-mono uppercase tracking-wider ml-1">
+                <input
+                  type="checkbox"
+                  checked={showReveal}
+                  onChange={(e) => onSetShowReveal(e.target.checked)}
+                  className="accent-accent"
+                />
+                Show rotation
+              </label>
+            )}
+          </div>
+          {submitted ? (
+            <>
+              <div className="font-mono text-xs text-text-dim flex items-center gap-2">
+                Score{' '}
+                <span className="text-text tabular-nums">
+                  {score}
+                  <span className="text-text-dim/60">/{total}</span>
+                </span>
+                <span className="text-text-dim/40">·</span>
+                <span className="text-accent tabular-nums">{scorePct}%</span>
+              </div>
+              <button
+                onClick={onViewSummary}
+                className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)] transition shrink-0"
+              >
+                View summary →
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="font-mono text-xs text-text-dim">
+                Answered{' '}
+                <span className="text-text tabular-nums">{answeredCount}</span>
+                <span className="text-text-dim/60">/{total}</span>
+              </div>
+              <button
+                onClick={onSubmit}
+                className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)] transition shrink-0"
+              >
+                Submit
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SummaryScreen({
+  results,
+  elapsedMs,
+  seed,
+  onReplay,
+  onAgain,
+}: {
+  results: SessionResult[];
+  elapsedMs: number;
+  seed: number;
+  onReplay: () => void;
+  onAgain: () => void;
+}) {
+  const correct = results.filter((r) => r.correct).length;
+  const total = results.length;
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+  return (
+    <div className="max-w-xl mx-auto rounded-2xl border border-border bg-bg-card p-6 md:p-8">
+      <h2 className="font-display text-2xl font-semibold text-text mb-1">Session complete</h2>
+      <p className="text-text-dim text-sm mb-6">Seed #{seed}</p>
+
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="rounded-xl border border-border bg-bg p-3 text-center">
+          <div className="font-mono text-2xl font-semibold text-text tabular-nums">
+            {correct}/{total}
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim mt-1">Score</div>
+        </div>
+        <div className="rounded-xl border border-border bg-bg p-3 text-center">
+          <div className="font-mono text-2xl font-semibold text-accent tabular-nums">{accuracy}%</div>
+          <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim mt-1">Accuracy</div>
+        </div>
+        <div className="rounded-xl border border-border bg-bg p-3 text-center">
+          <div className="font-mono text-lg font-semibold text-text tabular-nums">
+            {formatDuration(elapsedMs)}
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim mt-1">Time</div>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={onReplay}
+          className="flex-1 px-4 py-2.5 rounded-xl font-mono uppercase tracking-wider text-xs border border-border text-text-dim hover:text-text hover:bg-bg-card-hover transition"
+        >
+          Replay same set
+        </button>
+        <button
+          onClick={onAgain}
+          className="flex-1 px-4 py-2.5 rounded-xl bg-accent text-bg font-mono uppercase tracking-wider text-xs hover:shadow-[0_0_24px_-4px_var(--accent)] transition"
+        >
+          New session →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function OriginalCard({
   puzzle,
   phase,
   showReveal,
 }: {
   puzzle: Puzzle;
-  phase: Phase;
+  phase: 'answering' | 'revealed';
   showReveal: boolean;
 }) {
   const correctTransform = puzzle.candidates[puzzle.correctIndex]!.transform;
@@ -399,7 +822,7 @@ function CandidateCard({
   focused: boolean;
   selected: boolean;
   isCorrect: boolean;
-  phase: Phase;
+  phase: 'answering' | 'revealed';
   onPick: () => void;
   onFocus: () => void;
   reduced: boolean;
@@ -461,10 +884,10 @@ function CandidateCard({
       {revealed && (selected || isCorrect) && (
         <div
           className={clsx(
-            'absolute -bottom-2 left-2 right-2 mx-auto translate-y-full rounded-md px-2 py-1 font-mono text-[10px] tracking-wide',
+            'absolute font-mono text-[10px] tracking-wide',
             isCorrect ? 'text-correct' : 'text-wrong',
           )}
-          style={{ position: 'absolute', bottom: 6, left: 6, transform: 'none' }}
+          style={{ bottom: 6, left: 6 }}
         >
           {labelForKind(candidate.kind, isCorrect)}
         </div>
@@ -499,14 +922,14 @@ function RevealSummary({
   pick: number;
   correctness: boolean[];
 }) {
-  const correct = correctness[pick] === true;
+  const correct = pick >= 0 && correctness[pick] === true;
   const correctIdx = correctness.indexOf(true);
   const correctLetter = LETTERS[correctIdx >= 0 ? correctIdx : puzzle.correctIndex];
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
         <div className={clsx('text-sm font-medium', correct ? 'text-correct' : 'text-wrong')}>
-          {correct ? 'Correct' : 'Incorrect'}
+          {pick < 0 ? 'Not answered' : correct ? 'Correct' : 'Incorrect'}
         </div>
         <div className="font-mono text-xs text-text-dim">
           Correct answer: {correctLetter}
@@ -520,7 +943,9 @@ function RevealSummary({
               key={i}
               className={clsx(
                 'rounded-md p-2 border font-mono',
-                isC ? 'border-correct/30 bg-correct/5 text-correct' : 'border-border bg-bg/30 text-text-dim',
+                isC
+                  ? 'border-correct/30 bg-correct/5 text-correct'
+                  : 'border-border bg-bg/30 text-text-dim',
               )}
             >
               <span className="font-semibold mr-1">{LETTERS[i]}</span>
@@ -532,44 +957,6 @@ function RevealSummary({
     </div>
   );
 }
-
-function ScoreReadout({
-  score,
-  total,
-  accuracy,
-  onReset,
-}: {
-  score: number;
-  total: number;
-  accuracy: number;
-  onReset?: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-bg-card">
-      <span className="text-text-dim/70">SCORE</span>
-      <span className="text-text tabular-nums">
-        {score}<span className="text-text-dim/60">/{total}</span>
-      </span>
-      <span className="text-text-dim/40">·</span>
-      <span className="text-accent tabular-nums">{accuracy}%</span>
-      {onReset && (
-        <button
-          onClick={onReset}
-          disabled={total === 0}
-          aria-label="Reset score"
-          title="Reset score"
-          className="ml-1 -mr-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-text-dim/70 hover:text-wrong hover:bg-wrong/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-dim/70 transition"
-        >
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 12a9 9 0 1 0 3-6.7" />
-            <path d="M3 4v5h5" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
 
 function CheckIcon() {
   return (

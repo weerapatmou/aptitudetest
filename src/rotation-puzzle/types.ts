@@ -164,10 +164,24 @@ export type Candidate = {
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
+export type PracticeMode = 'sequential' | 'sheet';
+
+export type RotationSettings = {
+  count: number;
+  difficulty: Difficulty;
+  mode: PracticeMode;
+};
+
 export type Puzzle = {
   original: Figure;
   candidates: Candidate[];
   correctIndex: number;
   rotation: number;
   difficulty: Difficulty;
+};
+
+export type SessionResult = {
+  puzzle: Puzzle;
+  pickedIndex: number;
+  correct: boolean;
 };

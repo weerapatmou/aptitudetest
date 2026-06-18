@@ -71,6 +71,14 @@ export type Option = {
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
+export type PracticeMode = 'sequential' | 'sheet';
+
+export type MatchingSettings = {
+  count: number;
+  difficulty: Difficulty;
+  mode: PracticeMode;
+};
+
 export type MatchingPuzzle = {
   reference: ReferenceShape;
   options: Option[];
@@ -80,4 +88,10 @@ export type MatchingPuzzle = {
   cutStrategy: string;
   /** Number of points in the cut path: 2 = straight, 3 = 1-bend, 4 = 2-bend. */
   cutSegments: number;
+};
+
+export type SessionResult = {
+  puzzle: MatchingPuzzle;
+  pickedIndex: number;
+  correct: boolean;
 };
