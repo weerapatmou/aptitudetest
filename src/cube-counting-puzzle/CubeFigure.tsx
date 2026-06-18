@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import type { Arrangement, Pt } from './types';
+import type { Arrangement, Cell, Pt } from './types';
 import { buildScene } from './generate/iso';
 
 type Props = {
   arrangement: Arrangement;
   viewBox: string;
+  viewAngle?: 0 | 1 | 2 | 3;
   className?: string;
 };
 
@@ -24,12 +25,35 @@ function pts(p: Pt[]): string {
   return p.map((q) => `${q.x.toFixed(2)},${q.y.toFixed(2)}`).join(' ');
 }
 
-export function CubeFigure({ arrangement, viewBox, className }: Props) {
-  const scene = useMemo(() => buildScene(arrangement), [arrangement]);
+function rotateArrangement(arr: Arrangement, angle: 0 | 1 | 2 | 3): Arrangement {
+  if (angle === 0) return arr;
+  const { cols, rows, cells, archetype, total, height } = arr;
+  const maxX = cols - 1;
+  const maxY = rows - 1;
+
+  const newCells = cells.map(({ x, y, z }): Cell => {
+    if (angle === 1) return { x: maxY - y, y: x, z };
+    if (angle === 2) return { x: maxX - x, y: maxY - y, z };
+    return { x: y, y: maxX - x, z }; // angle === 3
+  });
+
+  const newCols = angle === 1 || angle === 3 ? rows : cols;
+  const newRows = angle === 1 || angle === 3 ? cols : rows;
+
+  return { archetype, cols: newCols, rows: newRows, height, cells: newCells, total };
+}
+
+export function CubeFigure({ arrangement, viewBox, viewAngle = 0, className }: Props) {
+  const scene = useMemo(
+    () => buildScene(rotateArrangement(arrangement, viewAngle)),
+    [arrangement, viewAngle],
+  );
+
+  const effectiveViewBox = viewAngle !== 0 ? scene.viewBox : viewBox;
 
   return (
     <svg
-      viewBox={viewBox}
+      viewBox={effectiveViewBox}
       className={className}
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"

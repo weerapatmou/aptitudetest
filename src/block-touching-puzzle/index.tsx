@@ -12,6 +12,7 @@ import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 import { LogoMark } from '@/shared/LogoMark';
+import { exportBlockTouchingPdf } from './exportPdf';
 
 const COUNT_PRESETS = [10, 20, 30, 40] as const;
 
@@ -399,12 +400,21 @@ function SheetScreen({
 
       <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-bg/90 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between gap-3">
-          <button
-            onClick={onEndSession}
-            className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
-          >
-            {submitted ? '← New session' : '← End session'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onEndSession}
+              className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
+            >
+              {submitted ? '← New session' : '← End session'}
+            </button>
+            <button
+              onClick={() => exportBlockTouchingPdf(results.map((r) => r.puzzle))}
+              disabled={results.length === 0}
+              className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              Export PDF
+            </button>
+          </div>
           {submitted ? (
             <>
               <div className="font-mono text-xs text-text-dim flex flex-wrap items-center gap-x-2 gap-y-0.5 justify-center">
@@ -472,7 +482,7 @@ function QuestionBlock({
   const [show3D, setShow3D] = useState(false);
 
   return (
-    <section id={`q-${index}`} className="flex flex-col gap-4 scroll-mt-24">
+    <section id={`q-${index}`} data-pdf-q={index} className="flex flex-col gap-4 scroll-mt-24">
       <Block3DViewer open={show3D} blocks={puzzle.blocks} onClose={() => setShow3D(false)} />
       <div className="flex items-center justify-between gap-3">
         <div className="font-mono text-xs text-text-dim">

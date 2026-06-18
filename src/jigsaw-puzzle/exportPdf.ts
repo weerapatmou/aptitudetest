@@ -1,20 +1,9 @@
 import type { JigsawPuzzle, JigsawPiece, AssembledOption, Polygon } from './types';
 import { pathFromPolygon, viewBoxFromBounds } from '../polygon-assembly-puzzle/svgHelpers';
 import { polygonBounds, rotatePolygon } from '../rotation-puzzle/generate/geometry';
+import { PRINT_C, PRINT_LETTERS, openPrintWindow, renderAnswerKey } from '../shared/exportPdf';
 
-const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
-
-const C = {
-  fill: '#0891b2',
-  stroke: '#0e7490',
-  correct: '#16a34a',
-  text: '#1e293b',
-  textDim: '#64748b',
-  border: '#e2e8f0',
-  cardBg: '#ffffff',
-  pageBg: '#f8fafc',
-  targetOutline: '#94a3b8',
-};
+const C = { ...PRINT_C, targetOutline: '#94a3b8' };
 
 function piecePanelSvg(pieces: JigsawPiece[]): string {
   const allPts: Array<{ x: number; y: number }> = [];
@@ -91,7 +80,7 @@ function assembledOptionSvg(option: AssembledOption, targetPolygon: Polygon, uid
 function renderQuestion(q: JigsawPuzzle, qIdx: number): string {
   const optionCells = q.options
     .map((opt, i) => {
-      const letter = LETTERS[i] ?? '?';
+      const letter = PRINT_LETTERS[i] ?? '?';
       return (
         `<div class="option">` +
         `<span class="opt-letter">${letter}</span>` +
@@ -112,29 +101,11 @@ function renderQuestion(q: JigsawPuzzle, qIdx: number): string {
   );
 }
 
-function renderAnswerKey(questions: JigsawPuzzle[]): string {
-  const cells = questions
-    .map((q, i) => {
-      const letter = LETTERS[q.correctIndex] ?? '?';
-      return (
-        `<div class="ak-cell">` +
-        `<span class="ak-qnum">Q${i + 1}</span>` +
-        `<span class="ak-letter">${letter}</span>` +
-        `</div>`
-      );
-    })
-    .join('');
-  return (
-    `<div class="answer-key">` +
-    `<div class="ak-title">ANSWER KEY</div>` +
-    `<div class="ak-grid">${cells}</div>` +
-    `</div>`
-  );
-}
-
 export function exportJigsawPdf(questions: JigsawPuzzle[]): void {
   const questionBlocks = questions.map((q, i) => renderQuestion(q, i)).join('');
-  const answerKey = renderAnswerKey(questions);
+  const answerKey = renderAnswerKey(
+    questions.map((q) => ({ letter: PRINT_LETTERS[q.correctIndex] ?? '?' })),
+  );
 
   const html =
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
@@ -170,8 +141,5 @@ export function exportJigsawPdf(questions: JigsawPuzzle[]): void {
     `<script>window.onload=function(){window.print();};</script>` +
     `</body></html>`;
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  openPrintWindow(html);
 }

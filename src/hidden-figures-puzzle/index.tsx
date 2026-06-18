@@ -10,6 +10,7 @@ import { formatDuration, useTimer } from '../rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 import { LogoMark } from '@/shared/LogoMark';
+import { exportHiddenFiguresPdf } from './exportPdf';
 
 const QUESTION_COUNTS = [7, 14, 21, 28] as const;
 
@@ -219,7 +220,9 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
             <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim/60 mb-2 text-center">
               Simple Shapes
             </div>
-            <ShapeLegend shapes={session.simpleShapes} />
+            <div data-pdf-preamble>
+              <ShapeLegend shapes={session.simpleShapes} />
+            </div>
           </div>
         )}
 
@@ -227,21 +230,22 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
         {session && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {session.questions.map((question, qIdx) => (
-              <ComplexFigureCard
-                key={`${sheetNum}-${qIdx}`}
-                question={question}
-                qIdx={qIdx}
-                answer={answers[qIdx] ?? -1}
-                submitted={submitted}
-                onPick={(labelIdx) => handlePick(qIdx, labelIdx)}
-                wrongShape={
-                  submitted &&
-                  answers[qIdx] !== undefined &&
-                  answers[qIdx] !== question.correctIndex
-                    ? (session.simpleShapes[answers[qIdx]!]?.def ?? null)
-                    : null
-                }
-              />
+              <div key={`${sheetNum}-${qIdx}`} data-pdf-q={qIdx}>
+                <ComplexFigureCard
+                  question={question}
+                  qIdx={qIdx}
+                  answer={answers[qIdx] ?? -1}
+                  submitted={submitted}
+                  onPick={(labelIdx) => handlePick(qIdx, labelIdx)}
+                  wrongShape={
+                    submitted &&
+                    answers[qIdx] !== undefined &&
+                    answers[qIdx] !== question.correctIndex
+                      ? (session.simpleShapes[answers[qIdx]!]?.def ?? null)
+                      : null
+                  }
+                />
+              </div>
             ))}
           </div>
         )}
@@ -284,6 +288,13 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
           )}
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => exportHiddenFiguresPdf(session)}
+              disabled={!session}
+              className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              Export PDF
+            </button>
             {submitted && (
               <button
                 onClick={newSheet}

@@ -26,7 +26,31 @@ export type Archetype =
   | 'tunnel'
   | 'zigzag-ridge'
   | 'double-well'
-  | 'pinwheel';
+  | 'pinwheel'
+  // easy
+  | 'checkerboard'
+  | 'chevron'
+  | 'double-stair'
+  | 'wall-pair'
+  // normal
+  | 'spine'
+  | 'h-prism'
+  | 'crown'
+  | 'trench'
+  | 'ridge-valley'
+  | 'corner-step'
+  | 'two-ridges'
+  // hard
+  | 'battlement'
+  | 'tri-tower'
+  | 'diamond-mound'
+  | 'wave'
+  | 'diagonal-split'
+  // pdf-inspired shapes
+  | 'x-cross'
+  | 's-shape'
+  | 'arrow'
+  | 'diamond-prism';
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easy: 'Easy',

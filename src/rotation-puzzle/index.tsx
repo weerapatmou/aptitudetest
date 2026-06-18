@@ -13,6 +13,7 @@ import { formatDuration, useTimer } from './hooks/useTimer';
 import { SeedBar, useSeedSequence } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 import { LogoMark } from '@/shared/LogoMark';
+import { exportRotationPdf } from './exportPdf';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -238,7 +239,7 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
         {/* Puzzle stack: Original on top (centered), candidates below at the
             same SVG-slot size so figures render 1:1. Candidates flex-wrap
             to 2×2 on narrow viewports and 1×4 when there's room. */}
-        <div className="flex flex-col items-center gap-6">
+        <div data-pdf-q="0" className="flex flex-col items-center gap-6">
           <section aria-label="Original figure" className="flex justify-center">
             {puzzle && (
               <OriginalCard
@@ -305,18 +306,27 @@ export function RotationPuzzle({ difficulty: difficultyProp, onHome }: Props = {
                       : `Incorrect — that option is ${labelForKind(puzzle.candidates[pick]!.kind, false)}. The correct answer was ${LETTERS[correctness.indexOf(true)] ?? LETTERS[puzzle.correctIndex]}.`
                   )}
                 </div>
-                <button
-                  onClick={newPuzzle}
-                  disabled={phase !== 'revealed'}
-                  className={clsx(
-                    'px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs transition shrink-0',
-                    phase === 'revealed'
-                      ? 'bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)]'
-                      : 'bg-bg-card text-text-dim/60 cursor-not-allowed border border-border',
-                  )}
-                >
-                  Next →
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => exportRotationPdf(puzzle)}
+                    disabled={!puzzle}
+                    className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  >
+                    Export PDF
+                  </button>
+                  <button
+                    onClick={newPuzzle}
+                    disabled={phase !== 'revealed'}
+                    className={clsx(
+                      'px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs transition shrink-0',
+                      phase === 'revealed'
+                        ? 'bg-accent text-bg hover:shadow-[0_0_24px_-4px_var(--accent)]'
+                        : 'bg-bg-card text-text-dim/60 cursor-not-allowed border border-border',
+                    )}
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
             </div>
           </section>

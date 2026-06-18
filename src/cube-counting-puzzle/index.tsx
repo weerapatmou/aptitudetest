@@ -14,6 +14,7 @@ import { formatDuration, useTimer } from '@/rotation-puzzle/hooks/useTimer';
 import { SeedBar, useSeed, type UseSeed } from '@/shared/seed';
 import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 import { LogoMark } from '@/shared/LogoMark';
+import { exportCubeCountingPdf } from './exportPdf';
 
 const LETTERS = ['a', 'b', 'c', 'd'] as const;
 const COUNT_PRESETS = [10, 20, 30, 40] as const;
@@ -374,61 +375,37 @@ function SheetScreen({
         Seed <span className="text-text-dim">#{seed}</span>
       </div>
       <div className="flex flex-col gap-12 pb-28">
-        {results.map((r, i) => {
-          const selected = answers[i] ?? null;
-          return (
-            <section key={r.puzzle.id} id={`q-${i}`} className="flex flex-col gap-4 scroll-mt-24">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-mono text-xs text-text-dim">
-                  Question <span className="text-text">{i + 1}</span> / {total}
-                </div>
-                {submitted && <DifficultyBadge difficulty={r.puzzle.difficulty} />}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-center">
-                <div className="relative rounded-2xl border-2 border-accent/40 bg-bg-card p-4 shadow-[0_0_40px_-16px_var(--accent)]">
-                  <div className="absolute top-2 left-3 z-10 font-mono text-[11px] tracking-widest text-accent">
-                    How many cubes?
-                  </div>
-                  <div className="w-full aspect-[4/3] flex items-center justify-center">
-                    <CubeFigure
-                      arrangement={r.puzzle.arrangement}
-                      viewBox={r.puzzle.viewBox}
-                      className="w-full h-full max-h-64"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  {r.puzzle.choices.map((choice, ci) => (
-                    <ChoiceCard
-                      key={`${r.puzzle.id}-${ci}`}
-                      choice={choice}
-                      letter={LETTERS[ci]!}
-                      index={ci}
-                      selected={selected === ci}
-                      revealed={submitted}
-                      onToggle={() => onSelect(i, ci)}
-                      reduced={reduced}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {submitted && <RevealPanel result={r} />}
-            </section>
-          );
-        })}
+        {results.map((r, i) => (
+          <QuestionCard
+            key={r.puzzle.id}
+            result={r}
+            index={i}
+            total={total}
+            selected={answers[i] ?? null}
+            submitted={submitted}
+            reduced={reduced}
+            onSelect={(ci) => onSelect(i, ci)}
+          />
+        ))}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-bg/90 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between gap-3">
-          <button
-            onClick={onEndSession}
-            className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
-          >
-            {submitted ? '← New session' : '← End session'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onEndSession}
+              className="px-3 py-2 rounded-lg font-mono uppercase tracking-wider text-[11px] text-text-dim hover:text-text hover:bg-bg-card-hover border border-border"
+            >
+              {submitted ? '← New session' : '← End session'}
+            </button>
+            <button
+              onClick={() => exportCubeCountingPdf(results.map((r) => r.puzzle))}
+              disabled={results.length === 0}
+              className="px-4 py-2 rounded-lg font-mono uppercase tracking-wider text-xs border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              Export PDF
+            </button>
+          </div>
           {submitted ? (
             <>
               <div className="font-mono text-xs text-text-dim flex flex-wrap items-center gap-x-2 gap-y-0.5 justify-center">
@@ -473,6 +450,91 @@ function SheetScreen({
         </div>
       </div>
     </>
+  );
+}
+
+function QuestionCard({
+  result,
+  index,
+  total,
+  selected,
+  submitted,
+  reduced,
+  onSelect,
+}: {
+  result: SheetResult;
+  index: number;
+  total: number;
+  selected: number | null;
+  submitted: boolean;
+  reduced: boolean;
+  onSelect: (choiceIdx: number) => void;
+}) {
+  const [viewAngle, setViewAngle] = useState<0 | 1 | 2 | 3>(0);
+  const rotateLeft = () => setViewAngle((a) => ((a + 3) % 4) as 0 | 1 | 2 | 3);
+  const rotateRight = () => setViewAngle((a) => ((a + 1) % 4) as 0 | 1 | 2 | 3);
+
+  return (
+    <section id={`q-${index}`} data-pdf-q={index} className="flex flex-col gap-4 scroll-mt-24">
+      <div className="flex items-center justify-between gap-3">
+        <div className="font-mono text-xs text-text-dim">
+          Question <span className="text-text">{index + 1}</span> / {total}
+        </div>
+        {submitted && <DifficultyBadge difficulty={result.puzzle.difficulty} />}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-center">
+        <div className="relative rounded-2xl border-2 border-accent/40 bg-bg-card p-4 shadow-[0_0_40px_-16px_var(--accent)]">
+          <div className="absolute top-2 left-3 z-10 font-mono text-[11px] tracking-widest text-accent">
+            How many cubes?
+          </div>
+          <div className="w-full aspect-[4/3] flex items-center justify-center">
+            <CubeFigure
+              arrangement={result.puzzle.arrangement}
+              viewBox={result.puzzle.viewBox}
+              viewAngle={viewAngle}
+              className="w-full h-full max-h-64"
+            />
+          </div>
+          <div className="absolute bottom-2 right-3 flex items-center gap-1">
+            <button
+              onClick={rotateLeft}
+              aria-label="Rotate left"
+              className="px-2 py-1 rounded font-mono text-[11px] text-text-dim hover:text-accent hover:bg-bg-card-hover border border-border/60 transition"
+            >
+              ◁
+            </button>
+            <span className="font-mono text-[10px] text-text-dim/50 tabular-nums w-5 text-center">
+              {viewAngle * 90}°
+            </span>
+            <button
+              onClick={rotateRight}
+              aria-label="Rotate right"
+              className="px-2 py-1 rounded font-mono text-[11px] text-text-dim hover:text-accent hover:bg-bg-card-hover border border-border/60 transition"
+            >
+              ▷
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {result.puzzle.choices.map((choice, ci) => (
+            <ChoiceCard
+              key={`${result.puzzle.id}-${ci}`}
+              choice={choice}
+              letter={LETTERS[ci]!}
+              index={ci}
+              selected={selected === ci}
+              revealed={submitted}
+              onToggle={() => onSelect(ci)}
+              reduced={reduced}
+            />
+          ))}
+        </div>
+      </div>
+
+      {submitted && <RevealPanel result={result} />}
+    </section>
   );
 }
 

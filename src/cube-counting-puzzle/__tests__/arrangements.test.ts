@@ -7,7 +7,14 @@ import type { Difficulty } from '../types';
 
 const DIFFS: Difficulty[] = ['easy', 'normal', 'hard'];
 
-type HMap = { cols: number; rows: number; height: number[][] };
+type HMap = { cols: number; rows: number; height: number[][]; archetype?: string };
+
+// Archetypes that are challenging through height patterns rather than hidden cube count.
+const HEIGHT_PATTERN_ARCHETYPES = new Set([
+  'checkerboard', 'chevron', 'double-stair', 'wall-pair',
+  'spine', 'crown', 'ridge-valley', 'corner-step', 'two-ridges',
+  'battlement', 'tri-tower', 'diamond-mound', 'wave', 'diagonal-split',
+]);
 
 function footprintCols(a: HMap): number {
   let n = 0;
@@ -16,8 +23,9 @@ function footprintCols(a: HMap): number {
   return n;
 }
 
-/** Structural shapes (rings/cross/L with footprint gaps, or a recessed well). */
+/** Structural shapes (rings/cross/L with footprint gaps, recessed wells, or height-pattern archetypes). */
 function isStructural(a: HMap): boolean {
+  if (a.archetype && HEIGHT_PATTERN_ARCHETYPES.has(a.archetype)) return true;
   if (footprintCols(a) < a.cols * a.rows) return true; // frame / plus / l-prism
   let minBoundary = Infinity;
   for (let x = 0; x < a.cols; x++) {
