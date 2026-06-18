@@ -44,12 +44,16 @@ function attemptCut(poly: Polygon, rng: Rng): [Polygon, Polygon] | null {
     if (minA < 80) continue; // avoid slivers (absolute floor)
     const frac = minA / total;
     if (frac < 0.20) continue; // both halves must be substantial
-    // Reject slivers: both pieces must have a minimum bounding-box width
+    // Reject slivers: both pieces must have adequate minimum width AND aspect ratio
     const bb0 = polygonBounds(pieces[0]);
     const bb1 = polygonBounds(pieces[1]);
     const thin0 = Math.min(bb0.maxX - bb0.minX, bb0.maxY - bb0.minY);
     const thin1 = Math.min(bb1.maxX - bb1.minX, bb1.maxY - bb1.minY);
-    if (thin0 < 20 || thin1 < 20) continue;
+    const fat0 = Math.max(bb0.maxX - bb0.minX, bb0.maxY - bb0.minY);
+    const fat1 = Math.max(bb1.maxX - bb1.minX, bb1.maxY - bb1.minY);
+    if (thin0 < 28 || thin1 < 28) continue;
+    if (fat0 > 0 && thin0 / fat0 < 0.12) continue; // reject very elongated pieces
+    if (fat1 > 0 && thin1 / fat1 < 0.12) continue;
     return pieces;
   }
   return null;
