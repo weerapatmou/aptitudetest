@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { Choice } from './types';
@@ -31,6 +31,9 @@ export function ChoiceCard({
   reduced,
 }: Props) {
   const ref = useRef<HTMLButtonElement>(null);
+  const uid = useId();
+  const clipId = `2d-choice-clip-${uid}`;
+  const [vx, vy, vw, vh] = viewBox.split(' ').map(Number);
 
   const correctPick = revealed && choice.isCorrect && selected;
   const wrongPick = revealed && !choice.isCorrect && selected;
@@ -90,11 +93,18 @@ export function ChoiceCard({
       <div className="w-full aspect-square flex items-center justify-center">
         <svg
           viewBox={viewBox}
-          className="w-full h-full"
+          className="w-full h-full overflow-visible"
           preserveAspectRatio="xMidYMid meet"
           aria-hidden="true"
         >
-          <Piece piece={choice.piece} />
+          <defs>
+            <clipPath id={clipId}>
+              <rect x={vx} y={vy} width={vw} height={vh} />
+            </clipPath>
+          </defs>
+          <g clipPath={`url(#${clipId})`}>
+            <Piece piece={choice.piece} />
+          </g>
         </svg>
       </div>
     </motion.button>
