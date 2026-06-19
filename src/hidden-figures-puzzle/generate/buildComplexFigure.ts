@@ -49,10 +49,112 @@ export function normalizeShape(pts: [number, number][], targetSize: number, rotA
   return pts.map(([x, y]) => rotPt([(x - cx) * scale, (y - cy) * scale], rotAngle));
 }
 
-// ── Strategy A: through-lines ─────────────────────────────────────────────────
-// Lines cross from one edge to another and extend past both endpoints.
-// They start/end at edge midpoints (not vertices) so they can never close into
-// a recognizable polygon — unlike triangle attachments which share a hidden edge.
+// ── linePolyIntersect ─────────────────────────────────────────────────────────
+// Extends the infinite line through p1→p2 and returns the two points where it
+// crosses the convex polygon boundary (or null if the line is parallel to all edges).
+
+function linePolyIntersect(p1: Pt, p2: Pt, poly: Pt[]): [Pt, Pt] | null {
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  const eps = 1e-9;
+  const hits: Pt[] = [];
+  const n = poly.length;
+
+  for (let i = 0; i < n; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % n]!;
+    const ex = b[0] - a[0];
+    const ey = b[1] - a[1];
+    const rx = a[0] - p1[0];
+    const ry = a[1] - p1[1];
+
+    // Solve: p1 + t*(p2-p1) = a + s*(b-a)
+    // denom = ex*dy - dx*ey
+    // s = (dx*ry - dy*rx) / denom   ← must be in [0,1] to be on the edge
+    const denom = ex * dy - dx * ey;
+    if (Math.abs(denom) < eps) continue; // parallel
+
+    const s = (dx * ry - dy * rx) / denom;
+    if (s < -eps || s > 1 + eps) continue; // outside edge
+
+    const x = a[0] + s * ex;
+    const y = a[1] + s * ey;
+
+    // Deduplicate corner hits (within tolerance)
+    if (!hits.some((h) => Math.abs(h[0] - x) < 0.1 && Math.abs(h[1] - y) < 0.1)) {
+      hits.push([x, y]);
+    }
+  }
+
+  if (hits.length >= 2) return [hits[0]!, hits[1]!];
+  return null;
+}
+
+// ── PDF-style: Subdivided Container Frame ─────────────────────────────────────
+//
+// Core idea matching both PDF test styles:
+//   1. A container polygon (rect or diamond) is drawn around the hidden shape.
+//   2. Each edge of the hidden shape is extended all the way to the container
+//      boundary, becoming a full interior dividing line.
+//   3. 0–2 extra random interior lines may be added for additional complexity.
+//
+// Result: a clean geometric composition where the hidden shape is exactly ONE
+// of the resulting sub-regions — identical to the look of both PDF tests.
+//
+// containerType = 'rect'    → axis-aligned bounding rectangle
+// containerType = 'diamond' → rotated square (diamond) sized to the shape
+
+function strategySubdividedFrame(pts: Pt[], rng: Rng, containerType: 'rect' | 'diamond'): Segment[] {
+  const extraSegs: Segment[] = [];
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const pad = rng.range(18, 32);
+
+  // Build container polygon
+  let container: Pt[];
+  if (containerType === 'rect') {
+    const x1 = Math.min(...xs) - pad, y1 = Math.min(...ys) - pad;
+    const x2 = Math.max(...xs) + pad, y2 = Math.max(...ys) + pad;
+    container = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  } else {
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const halfW = (Math.max(...xs) - Math.min(...xs)) / 2 + pad;
+    const halfH = (Math.max(...ys) - Math.min(...ys)) / 2 + pad;
+    const R = Math.sqrt(halfW * halfW + halfH * halfH);
+    container = [[cx, cy - R], [cx + R, cy], [cx, cy + R], [cx - R, cy]];
+  }
+
+  // Draw container boundary
+  extraSegs.push(...polySegs(container));
+
+  // Extend each hidden shape edge all the way to the container boundary
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const hit = linePolyIntersect(pts[i]!, pts[(i + 1) % n]!, container);
+    if (hit) extraSegs.push(seg(hit[0], hit[1]));
+  }
+
+  // Add 0–2 extra random interior lines connecting points on different container edges
+  const extraCount = rng.int(0, 3);
+  const nc = container.length;
+  const usedEdgePairs = new Set<string>();
+  for (let k = 0; k < extraCount; k++) {
+    const e1 = rng.int(0, nc);
+    const offset = rng.int(1, Math.ceil(nc / 2) + 1);
+    const e2 = (e1 + offset) % nc;
+    const pairKey = `${Math.min(e1, e2)}-${Math.max(e1, e2)}`;
+    if (usedEdgePairs.has(pairKey)) continue;
+    usedEdgePairs.add(pairKey);
+    const pA = lerpPt(container[e1]!, container[(e1 + 1) % nc]!, rng.range(0.2, 0.8));
+    const pB = lerpPt(container[e2]!, container[(e2 + 1) % nc]!, rng.range(0.2, 0.8));
+    extraSegs.push(seg(pA, pB));
+  }
+
+  return extraSegs;
+}
+
+// ── Fallback A: through-lines ─────────────────────────────────────────────────
 
 function strategyThroughLines(pts: Pt[], rng: Rng): Segment[] {
   const segs: Segment[] = [];
@@ -62,7 +164,6 @@ function strategyThroughLines(pts: Pt[], rng: Rng): Segment[] {
 
   for (let attempt = 0; attempt < lineCount * 3 && segs.length < lineCount; attempt++) {
     const e1 = rng.int(0, n);
-    // Triangles: 1 edge gap is fine (crosses through). Quads+: need ≥2 to actually traverse the interior.
     const minSep = n <= 3 ? 1 : 2;
     const sep = rng.int(minSep, Math.max(minSep + 1, Math.floor(n / 2) + 1));
     const e2 = (e1 + sep) % n;
@@ -86,73 +187,7 @@ function strategyThroughLines(pts: Pt[], rng: Rng): Segment[] {
   return segs;
 }
 
-// ── Strategy B: bounding rectangle enclosure ──────────────────────────────────
-
-function strategyBoundingRect(pts: Pt[]): Segment[] {
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-  const pad = 12;
-  const x1 = Math.min(...xs) - pad, y1 = Math.min(...ys) - pad;
-  const x2 = Math.max(...xs) + pad, y2 = Math.max(...ys) + pad;
-  const tl: Pt = [x1, y1], tr: Pt = [x2, y1];
-  const br: Pt = [x2, y2], bl: Pt = [x1, y2];
-  return [seg(tl, tr), seg(tr, br), seg(br, bl), seg(bl, tl)];
-}
-
-// ── Strategy C: radial fan from one vertex ────────────────────────────────────
-
-function strategyRadialFan(pts: Pt[], rng: Rng): Segment[] {
-  const n = pts.length;
-  const vi = rng.int(0, n);
-  const v = pts[vi]!;
-  const segs: Segment[] = [];
-  const fanCount = rng.int(2, Math.min(4, n - 1));
-  for (let f = 0; f < fanCount; f++) {
-    const edgeIdx = (vi + 2 + f) % n;
-    const a = pts[edgeIdx]!;
-    const b = pts[(edgeIdx + 1) % n]!;
-    const t = rng.range(0.25, 0.75);
-    segs.push(seg(v, lerpPt(a, b, t)));
-  }
-  return segs;
-}
-
-// ── Strategy E: overlapping closed polygons ───────────────────────────────────
-// 2–4 simple convex shapes are placed near the origin so they partially overlap
-// the hidden shape. Every line in the figure belongs to a complete polygon, which
-// forces the eye to trace carefully rather than dismissing crossing lines as noise.
-
-const DISTRACTOR_POOL: Pt[][] = [
-  // triangles
-  [[0, -50], [43, 25], [-43, 25]],
-  [[-45, -45], [45, -45], [-45, 45]],
-  [[0, -52], [28, 40], [-28, 40]],
-  [[-52, 30], [52, 30], [-10, -35]],
-  // quadrilaterals
-  [[-42, -42], [42, -42], [42, 42], [-42, 42]],
-  [[-55, -28], [55, -28], [55, 28], [-55, 28]],
-  [[-28, -35], [55, -35], [28, 35], [-55, 35]],
-  [[-25, -35], [25, -35], [52, 35], [-52, 35]],
-  // hexagon
-  [[0, -52], [45, -26], [45, 26], [0, 52], [-45, 26], [-45, -26]],
-];
-
-function strategyOverlappingPolygons(rng: Rng): Segment[] {
-  const allExtra: Segment[] = [];
-  const numDistractors = rng.int(2, 4);
-  for (let i = 0; i < numDistractors; i++) {
-    const rawPts = DISTRACTOR_POOL[rng.int(0, DISTRACTOR_POOL.length)]!;
-    const size = rng.range(45, 75);
-    const angle = rng.range(-60, 60) * (Math.PI / 180);
-    const distPts = normalizeShape(rawPts, size, angle);
-    const dx = rng.range(-35, 35);
-    const dy = rng.range(-35, 35);
-    const offsetPts = distPts.map((p) => addPt(p, [dx, dy]));
-    allExtra.push(...polySegs(offsetPts));
-  }
-  return allExtra;
-}
-
-// ── Strategy D: outer frame extension ────────────────────────────────────────
+// ── Fallback B: outer frame extension ────────────────────────────────────────
 
 function strategyOuterFrame(pts: Pt[], rng: Rng): Segment[] {
   const segs: Segment[] = [];
@@ -167,7 +202,7 @@ function strategyOuterFrame(pts: Pt[], rng: Rng): Segment[] {
   return segs;
 }
 
-// ── Interior chords (shared supplement) ──────────────────────────────────────
+// ── Interior chords (supplement) ─────────────────────────────────────────────
 
 function addInteriorChords(pts: Pt[], rng: Rng, maxChords: number): Segment[] {
   const segs: Segment[] = [];
@@ -185,8 +220,10 @@ function addInteriorChords(pts: Pt[], rng: Rng, maxChords: number): Segment[] {
 // ── Main builder ─────────────────────────────────────────────────────────────
 
 export function buildComplexFigure(shape: ShapeDef, rng: Rng): ComplexFigure {
-  const rotAngle = rng.range(-45, 45) * (Math.PI / 180);
-  const targetSize = rng.range(65, 90);
+  // Nearly no rotation — shape appears at the same orientation as in the legend,
+  // matching the PDF test format where the hidden shape is not rotated.
+  const rotAngle = rng.range(-8, 8) * (Math.PI / 180);
+  const targetSize = rng.range(58, 78);
   const pts = normalizeShape(shape.points, targetSize, rotAngle);
 
   // Hidden shape edges are always first — highlighted on submit
@@ -194,37 +231,25 @@ export function buildComplexFigure(shape: ShapeDef, rng: Rng): ComplexFigure {
   const hiddenSegmentCount = hiddenSegs.length;
   const allSegs: Segment[] = [...hiddenSegs];
 
-  // Bounding rect is only safe for non-quads (a rect around a quad looks like another quad)
   const dice = rng.next();
-  const isQuad = pts.length === 4;
 
-  if (dice < 0.55) {
-    // Primary: overlapping closed polygons (PDF-style)
-    allSegs.push(...strategyOverlappingPolygons(rng));
+  if (dice < 0.50) {
+    // Primary (50%): rectangular subdivided frame — matches PDF 1 style
+    allSegs.push(...strategySubdividedFrame(pts, rng, 'rect'));
 
-  } else if (dice < 0.70) {
-    // Through-lines cross the shape interior
+  } else if (dice < 0.80) {
+    // Secondary (30%): diamond subdivided frame — matches PDF 2 diamond figures
+    allSegs.push(...strategySubdividedFrame(pts, rng, 'diamond'));
+
+  } else if (dice < 0.90) {
+    // Fallback (10%): through-lines + interior chords
     allSegs.push(...strategyThroughLines(pts, rng));
     allSegs.push(...addInteriorChords(pts, rng, 2));
 
-  } else if (dice < 0.80) {
-    // Outer frame + interior chords
+  } else {
+    // Fallback (10%): outer frame extension + chords
     allSegs.push(...strategyOuterFrame(pts, rng));
     allSegs.push(...addInteriorChords(pts, rng, 3));
-
-  } else if (dice < 0.90) {
-    // Radial fan + through-lines
-    allSegs.push(...strategyRadialFan(pts, rng));
-    allSegs.push(...strategyThroughLines(pts, rng));
-
-  } else {
-    // Bounding rect (non-quads) / radial fan (quads) + through-lines
-    if (!isQuad) {
-      allSegs.push(...strategyBoundingRect(pts));
-    } else {
-      allSegs.push(...strategyRadialFan(pts, rng));
-    }
-    allSegs.push(...strategyThroughLines(pts, rng));
   }
 
   return {

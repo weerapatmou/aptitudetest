@@ -31,15 +31,27 @@ export function ComplexFigureCard({ question, qIdx, answer, submitted, onPick, w
           className="w-32 h-32 md:w-40 md:h-40"
           aria-label={`Complex figure ${qIdx + 1}`}
         >
-          {complexFigure.segments.map((seg, i) => {
+          {/* When submitted, render non-hidden segments first then hidden on top
+              so the orange highlight is never overdrawn by a collinear white line. */}
+          {(submitted
+            ? [
+                ...complexFigure.segments
+                  .map((s, i) => ({ s, i }))
+                  .filter(({ i }) => i >= complexFigure.hiddenSegmentCount),
+                ...complexFigure.segments
+                  .map((s, i) => ({ s, i }))
+                  .filter(({ i }) => i < complexFigure.hiddenSegmentCount),
+              ]
+            : complexFigure.segments.map((s, i) => ({ s, i }))
+          ).map(({ s, i }) => {
             const isHidden = submitted && i < complexFigure.hiddenSegmentCount;
             return (
               <line
                 key={i}
-                x1={seg.x1}
-                y1={seg.y1}
-                x2={seg.x2}
-                y2={seg.y2}
+                x1={s.x1}
+                y1={s.y1}
+                x2={s.x2}
+                y2={s.y2}
                 stroke={isHidden ? 'var(--color-accent-warm)' : 'currentColor'}
                 strokeWidth={isHidden ? 3.5 : 2}
                 strokeLinecap="round"
