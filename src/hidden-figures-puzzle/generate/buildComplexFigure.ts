@@ -116,6 +116,42 @@ function strategyRadialFan(pts: Pt[], rng: Rng): Segment[] {
   return segs;
 }
 
+// ── Strategy E: overlapping closed polygons ───────────────────────────────────
+// 2–4 simple convex shapes are placed near the origin so they partially overlap
+// the hidden shape. Every line in the figure belongs to a complete polygon, which
+// forces the eye to trace carefully rather than dismissing crossing lines as noise.
+
+const DISTRACTOR_POOL: Pt[][] = [
+  // triangles
+  [[0, -50], [43, 25], [-43, 25]],
+  [[-45, -45], [45, -45], [-45, 45]],
+  [[0, -52], [28, 40], [-28, 40]],
+  [[-52, 30], [52, 30], [-10, -35]],
+  // quadrilaterals
+  [[-42, -42], [42, -42], [42, 42], [-42, 42]],
+  [[-55, -28], [55, -28], [55, 28], [-55, 28]],
+  [[-28, -35], [55, -35], [28, 35], [-55, 35]],
+  [[-25, -35], [25, -35], [52, 35], [-52, 35]],
+  // hexagon
+  [[0, -52], [45, -26], [45, 26], [0, 52], [-45, 26], [-45, -26]],
+];
+
+function strategyOverlappingPolygons(rng: Rng): Segment[] {
+  const allExtra: Segment[] = [];
+  const numDistractors = rng.int(2, 4);
+  for (let i = 0; i < numDistractors; i++) {
+    const rawPts = DISTRACTOR_POOL[rng.int(0, DISTRACTOR_POOL.length)]!;
+    const size = rng.range(45, 75);
+    const angle = rng.range(-60, 60) * (Math.PI / 180);
+    const distPts = normalizeShape(rawPts, size, angle);
+    const dx = rng.range(-35, 35);
+    const dy = rng.range(-35, 35);
+    const offsetPts = distPts.map((p) => addPt(p, [dx, dy]));
+    allExtra.push(...polySegs(offsetPts));
+  }
+  return allExtra;
+}
+
 // ── Strategy D: outer frame extension ────────────────────────────────────────
 
 function strategyOuterFrame(pts: Pt[], rng: Rng): Segment[] {
@@ -149,7 +185,7 @@ function addInteriorChords(pts: Pt[], rng: Rng, maxChords: number): Segment[] {
 // ── Main builder ─────────────────────────────────────────────────────────────
 
 export function buildComplexFigure(shape: ShapeDef, rng: Rng): ComplexFigure {
-  const rotAngle = rng.range(-30, 30) * (Math.PI / 180);
+  const rotAngle = rng.range(-45, 45) * (Math.PI / 180);
   const targetSize = rng.range(65, 90);
   const pts = normalizeShape(shape.points, targetSize, rotAngle);
 
@@ -162,28 +198,27 @@ export function buildComplexFigure(shape: ShapeDef, rng: Rng): ComplexFigure {
   const dice = rng.next();
   const isQuad = pts.length === 4;
 
-  if (dice < 0.35) {
-    // Strategy A: through-lines cross the shape interior
+  if (dice < 0.55) {
+    // Primary: overlapping closed polygons (PDF-style)
+    allSegs.push(...strategyOverlappingPolygons(rng));
+
+  } else if (dice < 0.70) {
+    // Through-lines cross the shape interior
     allSegs.push(...strategyThroughLines(pts, rng));
     allSegs.push(...addInteriorChords(pts, rng, 2));
 
-  } else if (dice < 0.55) {
-    // Strategy A + D: through-lines + extended outer frame
-    allSegs.push(...strategyThroughLines(pts, rng));
-    allSegs.push(...strategyOuterFrame(pts, rng));
-
-  } else if (dice < 0.70) {
-    // Strategy D only: outer frame + interior chords
+  } else if (dice < 0.80) {
+    // Outer frame + interior chords
     allSegs.push(...strategyOuterFrame(pts, rng));
     allSegs.push(...addInteriorChords(pts, rng, 3));
 
-  } else if (dice < 0.85) {
-    // Strategy C: radial fan + through-lines
+  } else if (dice < 0.90) {
+    // Radial fan + through-lines
     allSegs.push(...strategyRadialFan(pts, rng));
     allSegs.push(...strategyThroughLines(pts, rng));
 
   } else {
-    // Strategy B (non-quads) / radial fan (quads) + through-lines
+    // Bounding rect (non-quads) / radial fan (quads) + through-lines
     if (!isQuad) {
       allSegs.push(...strategyBoundingRect(pts));
     } else {

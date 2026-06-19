@@ -12,7 +12,7 @@ import { pickFreshSeed, useSignatureHistory } from '@/shared/coverage';
 import { LogoMark } from '@/shared/LogoMark';
 import { exportHiddenFiguresPdf } from './exportPdf';
 
-const QUESTION_COUNTS = [7, 14, 21, 28] as const;
+const QUESTION_COUNTS = [7, 14, 21, 28];
 
 const DEFAULT_SETTINGS: Settings = {
   questionCount: 7,
@@ -33,6 +33,7 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [countDraft, setCountDraft] = useState(String(settings.questionCount));
 
   const { elapsed, reset: resetTimer } = useTimer(true);
   const history = useSignatureHistory('hiddenFigures:sigHistory', { max: 60 });
@@ -73,6 +74,18 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
     setSheetNum((n) => n + 1);
     resetTimer();
   }, [generateSheet, seedSeq, resetTimer]);
+
+  const applyCustomCount = useCallback(
+    (raw: string) => {
+      const n = Math.max(1, Math.min(100, parseInt(raw, 10) || settings.questionCount));
+      setCountDraft(String(n));
+      if (n === settings.questionCount) return;
+      setSettings((s) => ({ ...s, questionCount: n }));
+      generateSheet(seedSeq.restart(), n);
+      resetTimer();
+    },
+    [settings.questionCount, generateSheet, seedSeq, resetTimer, setSettings],
+  );
 
   const handlePick = useCallback(
     (qIdx: number, labelIdx: number) => {
@@ -174,6 +187,7 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
               <button
                 key={n}
                 onClick={() => {
+                  setCountDraft(String(n));
                   setSettings((s) => ({ ...s, questionCount: n }));
                   generateSheet(seedSeq.restart(), n);
                   resetTimer();
@@ -188,6 +202,17 @@ export function HiddenFiguresPuzzle({ onHome }: Props = {}) {
                 {n}
               </button>
             ))}
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={countDraft}
+              onChange={(e) => setCountDraft(e.target.value)}
+              onBlur={(e) => applyCustomCount(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') applyCustomCount((e.target as HTMLInputElement).value); }}
+              className="w-[4ch] rounded-lg bg-transparent px-1 py-1 font-mono text-xs text-text-dim text-center outline-none hover:bg-bg-card-hover focus:bg-bg-card-hover focus:text-text transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              aria-label="Custom question count"
+            />
           </div>
 
           <SeedBar
