@@ -14,6 +14,7 @@ import { FlipBoxPuzzle } from '@/flip-box-puzzle';
 import { FindingRotatedShapesPuzzle } from '@/finding-rotated-shapes-puzzle';
 import { JigsawPuzzle } from '@/jigsaw-puzzle';
 import { HiddenFiguresPuzzle } from '@/hidden-figures-puzzle';
+import { DotWalkingTest } from '@/dot-walking-test';
 
 type Mode =
   | 'home'
@@ -29,7 +30,8 @@ type Mode =
   | 'flip-box'
   | 'finding-rotated-shapes'
   | 'jigsaw-puzzle'
-  | 'hidden-figures';
+  | 'hidden-figures'
+  | 'dot-walking';
 
 const STORAGE_KEY = 'puzzle:active';
 
@@ -50,6 +52,7 @@ function readMode(): Mode {
     raw === 'finding-rotated-shapes' ||
     raw === 'jigsaw-puzzle' ||
     raw === 'hidden-figures' ||
+    raw === 'dot-walking' ||
     raw === 'home'
   )
     return raw;
@@ -108,6 +111,9 @@ export function App() {
       {mode === 'hidden-figures' && (
         <HiddenFiguresPuzzle onHome={() => setMode('home')} />
       )}
+      {mode === 'dot-walking' && (
+        <DotWalkingTest onHome={() => setMode('home')} />
+      )}
     </div>
   );
 }
@@ -133,7 +139,7 @@ type CategoryDef = {
 
 // ─── Score keys that persist across sessions ──────────────────────────────────
 
-const SCORE_KEYS = ['rotation:score', 'matching:score', 'assembly:score', 'jigsaw:score', 'hiddenFigures:score'] as const;
+const SCORE_KEYS = ['rotation:score', 'matching:score', 'assembly:score', 'jigsaw:score', 'hiddenFigures:score', 'dotWalk:score'] as const;
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 
@@ -417,6 +423,44 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
         },
       ],
     },
+    {
+      id: 'multitask',
+      label: 'Multitask',
+      description: 'Timed dual-hand coordination and reaction',
+      accentVar: '--accent-warm',
+      headerIcon: (
+        <svg width={20} height={20} viewBox="-12 -12 24 24" aria-hidden="true">
+          <g stroke="var(--accent-warm)" strokeWidth={1.8} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="-7" y1="5" x2="7" y2="-5" opacity={0.5} />
+            <circle cx={-7} cy={5} r={3} fill="var(--accent-warm)" stroke="none" />
+            <circle cx={7} cy={-5} r={3} fill="var(--accent-warm)" stroke="none" opacity={0.5} />
+          </g>
+        </svg>
+      ),
+      tests: [
+        {
+          id: 'dot-walking',
+          title: 'Dot Walking · เดินจุด',
+          tagline: 'Multitask · Reaction',
+          description:
+            'Two trails of dots — one per hand. On each beep, tap the next dot in order within the deadline, alternating right and left. Miss or tap out of order and it scores red until you recover. Endless pages; scores green vs red.',
+          icon: (
+            <svg width={36} height={36} viewBox="-12 -12 24 24" aria-hidden="true">
+              <g stroke="var(--accent)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M -8 8 L -3 0 L -8 -8" opacity={0.5} />
+                <path d="M 8 8 L 3 0 L 8 -8" opacity={0.5} />
+                <circle cx={-8} cy={8} r={2.4} fill="var(--accent)" stroke="none" />
+                <circle cx={-3} cy={0} r={2.4} fill="var(--accent)" stroke="none" />
+                <circle cx={-8} cy={-8} r={2.4} fill="var(--accent)" stroke="none" opacity={0.6} />
+                <circle cx={8} cy={8} r={2.4} fill="var(--accent)" stroke="none" />
+                <circle cx={3} cy={0} r={2.4} fill="var(--accent)" stroke="none" />
+                <circle cx={8} cy={-8} r={2.4} fill="var(--accent)" stroke="none" opacity={0.6} />
+              </g>
+            </svg>
+          ),
+        },
+      ],
+    },
   ];
 
   const [stats] = useState<{ total: number; correct: number } | null>(() => {
@@ -454,7 +498,7 @@ function HomePage({ onSelect }: { onSelect: (m: Mode) => void }) {
             Choose your practice test
           </h1>
           <p className="text-text-dim text-sm md:text-base max-w-xl mx-auto mb-6">
-            12 modules across spatial and numerical reasoning — randomised, timed, and self-scoring.
+            14 modules across spatial, numerical, and multitask skills — randomised, timed, and self-scoring.
           </p>
           {stats && <StatsRow stats={stats} />}
         </div>
