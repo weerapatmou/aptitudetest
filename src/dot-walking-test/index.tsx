@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import type { IntervalMode, Page, Settings, Side } from './types';
+import type { IntervalMode, Page, QCategory, QuestionConfig, Settings, Side } from './types';
 import { generatePage } from './generate';
 import { makeRng } from './generate/rng';
 import { createAudioEngine } from './audio';
+import { createSpeech } from './speech';
+import { ALL_CATEGORIES, CATEGORY_LABELS, pickQuestion, type Question } from './questions/generate';
+import { RECALL_WORDS, SPELL_WORDS } from './questions/wordlists';
 import { DotColumn } from './DotColumn';
 import { HowToPlay } from './HowToPlay';
 import { useLocalStorage } from '../rotation-puzzle/hooks/useLocalStorage';
@@ -14,6 +17,15 @@ const CIRCLE_COUNTS = [10, 15, 20];
 const LEAD_IN_MS = 700; // pause before the first knock
 const FLASH_CORRECT_MS = 320; // brief green flash on a correct tap
 const FLASH_WRONG_MS = 550; // brief red flash on a miss (then it clears)
+const QUESTION_START_MS = 1500; // delay before the first examiner question
+
+const DEFAULT_QUESTIONS: Record<QCategory, QuestionConfig> = {
+  addsub: { enabled: true, answerSec: 6 },
+  multiply: { enabled: true, answerSec: 12 },
+  time: { enabled: true, answerSec: 8 },
+  wordrecall: { enabled: true, answerSec: 8 },
+  spellback: { enabled: true, answerSec: 8 },
+};
 
 const DEFAULT_SETTINGS: Settings = {
   circlesPerSide: 15,
@@ -25,7 +37,21 @@ const DEFAULT_SETTINGS: Settings = {
   responseMs: 1500,
   swapSides: false,
   muted: false,
+  questionsEnabled: false,
+  mathLang: 'th',
+  speechRate: 1,
+  questionGapSec: 2,
+  questions: DEFAULT_QUESTIONS,
+  recallWords: RECALL_WORDS,
+  spellWords: SPELL_WORDS,
 };
+
+// Deep-merge the per-category question config so older/partial saved settings stay valid.
+function mergeQuestions(raw?: Partial<Record<QCategory, Partial<QuestionConfig>>>): Record<QCategory, QuestionConfig> {
+  const out = {} as Record<QCategory, QuestionConfig>;
+  for (const c of ALL_CATEGORIES) out[c] = { ...DEFAULT_QUESTIONS[c], ...(raw?.[c] ?? {}) };
+  return out;
+}
 
 type Phase = 'idle' | 'running' | 'stopped';
 
@@ -83,7 +109,7 @@ type Props = {
 
 export function DotWalkingTest({ onHome }: Props = {}) {
   const [rawSettings, setSettings] = useLocalStorage<Settings>('dotWalk:settings', DEFAULT_SETTINGS);
-  const settings: Settings = { ...DEFAULT_SETTINGS, ...rawSettings };
+  const settings: Settings = { ...DEFAULT_SETTINGS, ...rawSettings, questions: mergeQuestions(rawSettings.questions) };
   const [score, setScore] = useLocalStorage('dotWalk:score', { correct: 0, total: 0 });
 
   const [game, setGameState] = useState<GameState | null>(null);
@@ -93,6 +119,11 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   const [session, setSession] = useState({ green: 0, red: 0, pages: 0 });
   const [swapFlash, setSwapFlash] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // Examiner-question layer.
+  const [currentQ, setCurrentQ] = useState<Question | null>(null);
+  const [qStatus, setQStatus] = useState<'idle' | 'asking' | 'answering' | 'revealing' | 'gap'>('idle');
+  const [answerLeft, setAnswerLeft] = useState(0);
 
   const gameRef = useRef<GameState | null>(null);
   const phaseRef = useRef<Phase>('idle');
@@ -106,6 +137,15 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   const onBeatRef = useRef<() => void>(() => {});
   const onDeadlineRef = useRef<() => void>(() => {});
   const audioRef = useRef(createAudioEngine(() => settingsRef.current.muted));
+
+  // Examiner-question refs.
+  const speechRef = useRef(createSpeech(() => settingsRef.current.muted, () => settingsRef.current.speechRate));
+  const qTimerRef = useRef<number | null>(null);
+  const qCountdownRef = useRef<number | null>(null);
+  const answerEndRef = useRef(0);
+  const askNextRef = useRef<() => void>(() => {});
+  const onPromptEndRef = useRef<(q: Question) => void>(() => {});
+  const revealRef = useRef<(q: Question) => void>(() => {});
 
   settingsRef.current = settings;
 
@@ -266,6 +306,67 @@ export function DotWalkingTest({ onHome }: Props = {}) {
     fail(g);
   };
 
+  // ── Examiner questions (parallel to the metronome) ──
+  const clearQTimer = () => {
+    if (qTimerRef.current !== null) {
+      clearTimeout(qTimerRef.current);
+      qTimerRef.current = null;
+    }
+  };
+  const stopCountdown = () => {
+    if (qCountdownRef.current !== null) {
+      clearInterval(qCountdownRef.current);
+      qCountdownRef.current = null;
+    }
+  };
+  const startCountdown = (sec: number) => {
+    answerEndRef.current = Date.now() + sec * 1000;
+    setAnswerLeft(sec);
+    stopCountdown();
+    qCountdownRef.current = window.setInterval(() => {
+      setAnswerLeft(Math.max(0, Math.ceil((answerEndRef.current - Date.now()) / 1000)));
+    }, 250);
+  };
+  const stopQuestions = () => {
+    clearQTimer();
+    stopCountdown();
+    speechRef.current.cancel();
+    setQStatus('idle');
+    setCurrentQ(null);
+  };
+
+  const askNext = () => {
+    if (phaseRef.current !== 'running' || !settingsRef.current.questionsEnabled) return;
+    const q = pickQuestion(settingsRef.current);
+    if (!q) {
+      // Nothing enabled right now — check again shortly.
+      qTimerRef.current = window.setTimeout(() => askNextRef.current(), 1500);
+      return;
+    }
+    setCurrentQ(q);
+    setQStatus('asking');
+    speechRef.current.speakParts(q.prompt, () => onPromptEndRef.current(q));
+  };
+  const onPromptEnd = (q: Question) => {
+    if (phaseRef.current !== 'running') return;
+    setQStatus('answering');
+    startCountdown(q.answerSec);
+    qTimerRef.current = window.setTimeout(() => revealRef.current(q), q.answerSec * 1000);
+  };
+  const reveal = (q: Question) => {
+    if (phaseRef.current !== 'running') return;
+    stopCountdown();
+    setQStatus('revealing');
+    speechRef.current.speakParts(q.answer, () => {
+      if (phaseRef.current !== 'running') return;
+      setQStatus('gap');
+      qTimerRef.current = window.setTimeout(() => askNextRef.current(), settingsRef.current.questionGapSec * 1000);
+    });
+  };
+  askNextRef.current = askNext;
+  onPromptEndRef.current = onPromptEnd;
+  revealRef.current = reveal;
+
   const start = () => {
     audioRef.current.resume(); // unlock audio on the Start gesture (iOS)
     const g = buildPage(1);
@@ -277,10 +378,17 @@ export function DotWalkingTest({ onHome }: Props = {}) {
     commit(g);
     setPhase('running');
     armBeat(LEAD_IN_MS);
+    // Kick off the examiner layer if enabled.
+    stopQuestions();
+    if (settings.questionsEnabled) {
+      speechRef.current.prime(); // unlock TTS on this gesture
+      qTimerRef.current = window.setTimeout(() => askNextRef.current(), QUESTION_START_MS);
+    }
   };
 
   const stop = () => {
     clearTimers();
+    stopQuestions();
     openWindow(false);
     setPhase('stopped');
   };
@@ -288,17 +396,22 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   // Cleanup on unmount.
   useEffect(() => {
     const audio = audioRef.current;
+    const speech = speechRef.current;
     return () => {
       if (beatRef.current !== null) clearTimeout(beatRef.current);
       if (deadlineRef.current !== null) clearTimeout(deadlineRef.current);
       if (flashTimerRef.current !== null) clearTimeout(flashTimerRef.current);
       if (swapTimerRef.current !== null) clearTimeout(swapTimerRef.current);
+      if (qTimerRef.current !== null) clearTimeout(qTimerRef.current);
+      if (qCountdownRef.current !== null) clearInterval(qCountdownRef.current);
+      speech.cancel();
       audio.close();
     };
   }, []);
 
   const handleHome = () => {
     clearTimers();
+    stopQuestions();
     onHome?.();
   };
 
@@ -371,7 +484,14 @@ export function DotWalkingTest({ onHome }: Props = {}) {
         </div>
       </header>
 
-      {phase === 'idle' && <SetupPanel settings={settings} setSettings={setSettings} onStart={start} />}
+      {phase === 'idle' && (
+        <SetupPanel
+          settings={settings}
+          setSettings={setSettings}
+          onStart={start}
+          speechSupported={speechRef.current.supported}
+        />
+      )}
 
       {phase === 'stopped' && (
         <SummaryPanel session={session} elapsed={elapsed} onStart={start} onHome={handleHome} />
@@ -399,6 +519,27 @@ export function DotWalkingTest({ onHome }: Props = {}) {
               >
                 {!armed ? 'รอเสียงเคาะ…' : 'แตะ!'}
               </div>
+
+              {settings.questionsEnabled && qStatus !== 'idle' && (
+                <div
+                  className="hidden md:flex items-center gap-2 font-mono text-xs px-3 py-1 rounded-md bg-accent-warm/10 text-accent-warm"
+                  aria-live="polite"
+                >
+                  <span aria-hidden>🎧</span>
+                  {qStatus === 'asking' && <span>ฟังคำถาม…</span>}
+                  {qStatus === 'answering' && <span>ตอบใน {answerLeft}s</span>}
+                  {qStatus === 'revealing' && (
+                    <span className="text-text">
+                      เฉลย: <strong>{currentQ?.answerText}</strong>
+                    </span>
+                  )}
+                  {qStatus === 'gap' && <span className="opacity-60">…</span>}
+                  {currentQ && qStatus !== 'revealing' && (
+                    <span className="opacity-60">· {currentQ.label}</span>
+                  )}
+                </div>
+              )}
+
               <div className="ml-auto flex items-center gap-3 font-mono text-xs">
                 <span className="text-correct tabular-nums">{session.green}</span>
                 <span className="text-text-dim/40">/</span>
@@ -453,12 +594,17 @@ function SetupPanel({
   settings,
   setSettings,
   onStart,
+  speechSupported,
 }: {
   settings: Settings;
   setSettings: (v: Settings | ((p: Settings) => Settings)) => void;
   onStart: () => void;
+  speechSupported: boolean;
 }) {
   const [countDraft, setCountDraft] = useState(String(settings.circlesPerSide));
+
+  const setCat = (c: QCategory, patch: Partial<QuestionConfig>) =>
+    setSettings({ ...settings, questions: { ...settings.questions, [c]: { ...settings.questions[c], ...patch } } });
 
   const applyCount = (raw: string) => {
     const n = Math.max(3, Math.min(40, parseInt(raw, 10) || settings.circlesPerSide));
@@ -600,6 +746,119 @@ function SetupPanel({
           </div>
         </div>
 
+        {/* Examiner questions */}
+        <div className="rounded-2xl border border-border bg-bg-card p-5 space-y-4">
+          <Toggle
+            label="กรรมการถามคำถามระหว่างเดินจุด (ออกเสียง)"
+            checked={settings.questionsEnabled}
+            onChange={(v) => setSettings({ ...settings, questionsEnabled: v })}
+          />
+          {!speechSupported && (
+            <div className="rounded-lg border border-wrong/40 bg-wrong/5 p-2.5 font-mono text-[11px] text-wrong">
+              เครื่องนี้ไม่รองรับการอ่านออกเสียง (TTS) — ฟีเจอร์นี้จะไม่มีเสียง
+            </div>
+          )}
+          {settings.questionsEnabled && (
+            <div className="space-y-4">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim/70 mb-2">
+                  ภาษา (คำถามเลข/เวลา)
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg p-1">
+                  {(['th', 'en'] as const).map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setSettings({ ...settings, mathLang: l })}
+                      className={clsx(
+                        'rounded-lg px-3 py-1 font-mono text-xs transition',
+                        settings.mathLang === l
+                          ? 'bg-accent text-bg shadow-[0_0_12px_-2px_var(--accent)]'
+                          : 'text-text-dim hover:text-text hover:bg-bg-card-hover',
+                      )}
+                    >
+                      {l === 'th' ? 'ไทย' : 'อังกฤษ'}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 font-mono text-[10px] text-text-dim/50">คำอังกฤษ (ทวนคำ/สะกด) เป็นภาษาอังกฤษเสมอ</p>
+              </div>
+
+              <div>
+                <div className="mb-1 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-text-dim/70">
+                  <span>ความเร็วเสียงพูด</span>
+                  <span className="text-accent tabular-nums">{settings.speechRate.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={1.5}
+                  step={0.1}
+                  value={settings.speechRate}
+                  onChange={(e) => setSettings({ ...settings, speechRate: parseFloat(e.target.value) })}
+                  className="w-full accent-[var(--accent)]"
+                  aria-label="ความเร็วเสียงพูด"
+                />
+                <div className="flex justify-between font-mono text-[9px] text-text-dim/50">
+                  <span>ช้า</span>
+                  <span>ปกติ</span>
+                  <span>เร็ว</span>
+                </div>
+              </div>
+
+              <SecondsField
+                label="เว้นช่วงหลังเฉลย (วิ)"
+                ms={settings.questionGapSec * 1000}
+                onChange={(ms) => setSettings({ ...settings, questionGapSec: Math.max(0, Math.round(ms / 1000)) })}
+              />
+
+              <div className="space-y-2.5">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim/70">
+                  หมวดคำถาม + เวลาให้ตอบ (วินาที)
+                </div>
+                {ALL_CATEGORIES.map((c) => (
+                  <div key={c} className="flex items-center justify-between gap-3">
+                    <Toggle
+                      label={CATEGORY_LABELS[c]}
+                      checked={settings.questions[c].enabled}
+                      onChange={(v) => setCat(c, { enabled: v })}
+                    />
+                    <label className="flex shrink-0 items-center gap-1 font-mono text-[11px] text-text-dim/70">
+                      ตอบใน
+                      <input
+                        type="number"
+                        min={2}
+                        max={30}
+                        value={settings.questions[c].answerSec}
+                        onChange={(e) =>
+                          setCat(c, {
+                            answerSec: Math.max(2, Math.min(30, parseInt(e.target.value, 10) || settings.questions[c].answerSec)),
+                          })
+                        }
+                        className="w-[3.5ch] rounded bg-bg border border-border px-1 py-0.5 text-center text-text outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        aria-label={`เวลาให้ตอบ ${CATEGORY_LABELS[c]}`}
+                      />
+                      วิ
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              <WordListEditor
+                title="คำสำหรับ “ทวนชุดคำ”"
+                words={settings.recallWords}
+                defaults={RECALL_WORDS}
+                onChange={(w) => setSettings({ ...settings, recallWords: w })}
+              />
+              <WordListEditor
+                title="คำสำหรับ “สะกดย้อนหลัง”"
+                words={settings.spellWords}
+                defaults={SPELL_WORDS}
+                onChange={(w) => setSettings({ ...settings, spellWords: w })}
+              />
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onStart}
           className="w-full py-3 rounded-xl bg-accent text-bg font-mono text-sm uppercase tracking-[0.2em] hover:shadow-[0_0_28px_-4px_var(--accent)] transition"
@@ -679,6 +938,67 @@ function Toggle({
       </span>
       {label}
     </button>
+  );
+}
+
+function WordListEditor({
+  title,
+  words,
+  defaults,
+  onChange,
+}: {
+  title: string;
+  words: string[];
+  defaults: string[];
+  onChange: (w: string[]) => void;
+}) {
+  const [draft, setDraft] = useState(words.join(', '));
+  useEffect(() => {
+    setDraft(words.join(', '));
+  }, [words]);
+  const apply = (raw: string) => {
+    const parsed = Array.from(new Set(raw.split(/[\n,]+/).map((w) => w.trim()).filter(Boolean)));
+    onChange(parsed);
+  };
+  return (
+    <details className="rounded-lg border border-border bg-bg/50">
+      <summary className="cursor-pointer select-none px-3 py-2 font-mono text-[11px] text-text-dim hover:text-text">
+        {title} · <span className="text-accent">{words.length}</span> คำ — ดู/แก้ไข
+      </summary>
+      <div className="px-3 pb-3 space-y-2">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => apply(e.target.value)}
+          rows={5}
+          spellCheck={false}
+          className="w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs text-text outline-none focus:border-accent resize-y"
+          aria-label={title}
+        />
+        <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-text-dim/60">
+          <span>คั่นด้วยลูกน้ำ ( , ) หรือขึ้นบรรทัดใหม่</span>
+          <span className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => apply(draft)}
+              className="rounded border border-accent/40 text-accent px-2 py-0.5 hover:bg-accent/10 transition"
+            >
+              บันทึก
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(defaults.join(', '));
+                onChange([...defaults]);
+              }}
+              className="rounded border border-border px-2 py-0.5 hover:text-text transition"
+            >
+              คืนค่าเริ่มต้น
+            </button>
+          </span>
+        </div>
+      </div>
+    </details>
   );
 }
 

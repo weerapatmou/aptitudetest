@@ -66,6 +66,12 @@ export function HowToPlay({ onClose }: Props) {
           เส้นซ้ายเป็นเส้นประ เส้นขวาเป็นเส้นทึบ · เปิดโหมด "สลับฝั่ง" เพื่อสุ่มเริ่มด้วยมือซ้ายบางหน้า (ฝึกไขว่)
         </div>
 
+        <div className="mt-3 rounded-lg border border-accent-warm/30 bg-accent-warm/5 p-3 font-mono text-[11px] text-text-dim/70">
+          <strong className="text-accent-warm">🎧 กรรมการถามคำถาม:</strong> เปิดได้ในหน้าตั้งค่า —
+          ระบบจะออกเสียงถาม (บวกลบ/คูณ/เวลา/ทวนชุดคำ/สะกดย้อนหลัง) ระหว่างเดินจุด ให้ตอบด้วยปากภายในเวลาที่ตั้ง
+          แล้วระบบจะพูดเฉลยให้ตรวจเอง (ตั้งเวลา/ภาษา/เลือกหมวด และแก้ไขรายการคำเองได้ในหน้าตั้งค่า)
+        </div>
+
         <button
           onClick={onClose}
           className="mt-5 w-full py-2 rounded-lg bg-accent text-bg font-mono text-xs uppercase tracking-wider hover:shadow-[0_0_20px_-4px_var(--accent)] transition"

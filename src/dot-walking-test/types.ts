@@ -4,6 +4,12 @@ export type Side = 'right' | 'left';
 
 export type IntervalMode = 'fixed' | 'random' | 'mixed';
 
+/** Examiner question categories asked aloud while walking the dots. */
+export type QCategory = 'addsub' | 'multiply' | 'time' | 'wordrecall' | 'spellback';
+
+/** Per-category config: whether it's asked, and seconds to answer before the reveal. */
+export type QuestionConfig = { enabled: boolean; answerSec: number };
+
 export type Settings = {
   /** Circles per side, per page. */
   circlesPerSide: number;
@@ -23,6 +29,22 @@ export type Settings = {
   swapSides: boolean;
   /** Mute the metronome / warning tones. */
   muted: boolean;
+
+  // ── Examiner questions (spoken multitask overlay) ──
+  /** Master switch for the spoken-question layer. */
+  questionsEnabled: boolean;
+  /** Language for math/time questions (word categories are always English). */
+  mathLang: 'th' | 'en';
+  /** TTS speaking rate for the examiner voice (≈0.5 slow … 1.5 fast). */
+  speechRate: number;
+  /** Silence (seconds) after the answer is spoken before the next question. */
+  questionGapSec: number;
+  /** Per-category enable + answer time. */
+  questions: Record<QCategory, QuestionConfig>;
+  /** Editable word pool for the "word recall" category. */
+  recallWords: string[];
+  /** Editable word pool for the "spell backward" category. */
+  spellWords: string[];
 };
 
 export type Circle = {
