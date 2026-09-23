@@ -36,7 +36,7 @@ export function HowToPlay({ onClose }: Props) {
           <li className="flex gap-3">
             <span className="font-mono text-accent font-bold shrink-0">2.</span>
             <span>
-              ต้อง <strong className="text-text">รอเสียงเคาะก่อน</strong> ถึงจะกดได้ (กดก่อนเคาะจะไม่นับ)
+              ต้อง <strong className="text-text">รอเสียงเคาะก่อน</strong> ถึงจะกดได้ (กดก่อนเคาะ<strong className="text-wrong">ถือว่าผิด</strong>)
               พอเคาะแล้วให้กดวงกลมถัดไปตามลำดับภายในเวลาที่ตั้งไว้ เริ่มจาก{' '}
               <strong className="text-text">ฝั่งขวาก่อน</strong> แล้วสลับ ขวา–ซ้าย–ขวา–ซ้าย ไปเรื่อย ๆ
               จังหวะเคาะตั้งได้ทั้ง คงที่ / สุ่ม / คงที่+สุ่ม

@@ -98,6 +98,7 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   const phaseRef = useRef<Phase>('idle');
   const settingsRef = useRef(settings);
   const windowOpenRef = useRef(false);
+  const prematureFlaggedRef = useRef(false); // one red per silent gap for early taps
   const beatRef = useRef<number | null>(null);
   const deadlineRef = useRef<number | null>(null);
   const flashTimerRef = useRef<number | null>(null);
@@ -122,6 +123,7 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   const openWindow = (open: boolean) => {
     windowOpenRef.current = open;
     setArmed(open);
+    if (!open) prematureFlaggedRef.current = false; // a new silent gap begins
   };
   const clearBeat = () => {
     if (beatRef.current !== null) {
@@ -218,11 +220,24 @@ export function DotWalkingTest({ onHome }: Props = {}) {
     // Keep the pending knock → same target is re-cued next beat (no advance).
   };
 
+  // Tapped before the knock (window closed) → wrong, but only once per silent gap.
+  const prematureFail = (g: GameState) => {
+    if (prematureFlaggedRef.current) return;
+    prematureFlaggedRef.current = true;
+    showFlash(targetOf(g), 'wrong');
+    registerResult(false);
+    audioRef.current.warn();
+    // Don't touch the pending knock or the (already closed) window.
+  };
+
   const handleTap = (side: Side, order: number) => {
     if (phaseRef.current !== 'running') return;
-    if (!windowOpenRef.current) return; // must wait for the knock
     const g = gameRef.current;
     if (!g) return;
+    if (!windowOpenRef.current) {
+      prematureFail(g); // tapped before the knock
+      return;
+    }
     const target = targetOf(g);
 
     if (side === target.side && order === target.order) {
@@ -241,9 +256,13 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   };
 
   const handleTapEmpty = (_side: Side) => {
-    if (phaseRef.current !== 'running' || !windowOpenRef.current) return;
+    if (phaseRef.current !== 'running') return;
     const g = gameRef.current;
     if (!g) return;
+    if (!windowOpenRef.current) {
+      prematureFail(g); // tapped before the knock
+      return;
+    }
     fail(g);
   };
 
@@ -286,7 +305,6 @@ export function DotWalkingTest({ onHome }: Props = {}) {
   const accuracy = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
   const red = score.total - score.correct;
 
-  const turn = game?.turn ?? 'right';
   const inPlay = phase === 'running';
 
   return (
@@ -379,7 +397,7 @@ export function DotWalkingTest({ onHome }: Props = {}) {
                 )}
                 aria-live="polite"
               >
-                {!armed ? 'รอเสียงเคาะ…' : turn === 'right' ? 'แตะ · ขวา' : 'แตะ · ซ้าย'}
+                {!armed ? 'รอเสียงเคาะ…' : 'แตะ!'}
               </div>
               <div className="ml-auto flex items-center gap-3 font-mono text-xs">
                 <span className="text-correct tabular-nums">{session.green}</span>
@@ -409,7 +427,6 @@ export function DotWalkingTest({ onHome }: Props = {}) {
               label="ซ้าย · Left"
               dashed
               circles={game.page.left}
-              isActiveSide={turn === 'left'}
               flash={flash?.side === 'left' ? { order: flash.order, kind: flash.kind } : null}
               onTap={handleTap}
               onTapEmpty={handleTapEmpty}
@@ -419,7 +436,6 @@ export function DotWalkingTest({ onHome }: Props = {}) {
               label="ขวา · Right"
               dashed={false}
               circles={game.page.right}
-              isActiveSide={turn === 'right'}
               flash={flash?.side === 'right' ? { order: flash.order, kind: flash.kind } : null}
               onTap={handleTap}
               onTapEmpty={handleTapEmpty}

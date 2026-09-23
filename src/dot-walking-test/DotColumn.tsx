@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import type { Circle, Side } from './types';
 import { LAYOUT } from './generate';
 
@@ -10,33 +9,23 @@ type Props = {
   /** Dashed connecting line (left) vs solid (right). */
   dashed: boolean;
   circles: Circle[];
-  /** Whether it is currently this side's turn (glows the column border). */
-  isActiveSide: boolean;
   /** Brief colour flash on this side (last tap result), or null. No target is ever revealed. */
   flash: Flash | null;
   onTap: (side: Side, order: number) => void;
   onTapEmpty: (side: Side) => void;
 };
 
-export function DotColumn({ side, label, dashed, circles, isActiveSide, flash, onTap, onTapEmpty }: Props) {
+// Both columns look identical at all times — which hand is next is never shown,
+// so the player must remember (always starting on the right and alternating).
+export function DotColumn({ side, label, dashed, circles, flash, onTap, onTapEmpty }: Props) {
   const { VB_W, VB_H, R } = LAYOUT;
 
   const ordered = [...circles].sort((a, b) => a.order - b.order);
   const points = ordered.map((c) => `${c.x},${c.y}`).join(' ');
 
   return (
-    <div
-      className={clsx(
-        'flex-1 min-w-0 flex flex-col rounded-2xl border bg-bg-card/40 transition-colors duration-150',
-        isActiveSide ? 'border-accent shadow-[0_0_28px_-8px_var(--accent)]' : 'border-border',
-      )}
-    >
-      <div
-        className={clsx(
-          'shrink-0 text-center font-mono text-[11px] uppercase tracking-[0.25em] py-2 border-b transition-colors',
-          isActiveSide ? 'text-accent border-accent/40' : 'text-text-dim/70 border-border',
-        )}
-      >
+    <div className="flex-1 min-w-0 flex flex-col rounded-2xl border border-border bg-bg-card/40">
+      <div className="shrink-0 text-center font-mono text-[11px] uppercase tracking-[0.25em] py-2 border-b border-border text-text-dim/70">
         {label}
       </div>
       <svg
